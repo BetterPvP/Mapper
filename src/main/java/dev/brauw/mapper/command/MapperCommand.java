@@ -9,6 +9,7 @@ import dev.brauw.mapper.metadata.MetadataManager;
 import dev.brauw.mapper.region.Region;
 import dev.brauw.mapper.session.EditSession;
 import dev.brauw.mapper.session.SessionManager;
+import dev.brauw.mapper.tag.Tag;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import lombok.AllArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -60,6 +61,29 @@ public class MapperCommand {
                 .append(Component.text(" - Discard your editing session.", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("● /mapper metadata", NamedTextColor.WHITE)
                 .append(Component.text(" - Change this world's metadata.", NamedTextColor.GRAY)));
+        sender.sendMessage(Component.text("● /mapper tags <region>", NamedTextColor.WHITE)
+                .append(Component.text(" - List the tags available for a region.", NamedTextColor.GRAY)));
+    }
+
+    @Command("tags <region>")
+    public void tags(CommandSourceStack source, @Argument("region") String region) {
+        final CommandSender sender = source.getSender();
+        final List<Tag> tags = mapperPlugin.getTagRegistry().getTags(region);
+
+        if (tags.isEmpty()) {
+            sender.sendMessage(prefix.append(Component.text("No tags available for ", NamedTextColor.RED))
+                    .append(Component.text("'" + region + "'", NamedTextColor.DARK_RED))
+                    .append(Component.text(".", NamedTextColor.RED)));
+            return;
+        }
+
+        sender.sendMessage(prefix.append(Component.text("Tags for ", NamedTextColor.GOLD))
+                .append(Component.text("'" + region + "'", NamedTextColor.YELLOW)));
+        for (Tag tag : tags) {
+            sender.sendMessage(Component.text("● ", NamedTextColor.WHITE)
+                    .append(Component.text(tag.usage(), NamedTextColor.YELLOW))
+                    .append(Component.text(" - " + tag.description(), NamedTextColor.GRAY)));
+        }
     }
 
     @Command("edit")

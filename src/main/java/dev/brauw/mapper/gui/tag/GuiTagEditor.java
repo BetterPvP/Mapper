@@ -102,9 +102,10 @@ public class GuiTagEditor extends AbstractPagedGui<Item> {
 
             return new ItemBuilder(material)
                     .setDisplayName(new AdventureComponentWrapper(title))
-                    .addLoreLines(new AdventureComponentWrapper(
-                            Component.text(tag.description(), NamedTextColor.GRAY)
-                    ));
+                    .addLoreLines(
+                            new AdventureComponentWrapper(Component.text(tag.usage(), NamedTextColor.GOLD)),
+                            new AdventureComponentWrapper(Component.text(tag.description(), NamedTextColor.GRAY))
+                    );
         }
 
         @Override
