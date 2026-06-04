@@ -20,18 +20,20 @@ public class PatternTag extends Tag {
      * @param pattern          the regular expression matched against tag values
      * @param usage            a short usage hint shown in commands (e.g. {@code level:<number>})
      * @param description      a human-readable description
+     * @param requiresInput    whether selecting this tag prompts for a typed value
      * @param supportedRegions the region names this tag is offered on
      */
-    public PatternTag(String name, String pattern, String usage, String description, Set<String> supportedRegions) {
-        super(name, usage, description, supportedRegions);
+    public PatternTag(String name, String pattern, String usage, String description, boolean requiresInput, Set<String> supportedRegions) {
+        super(name, usage, description, supportedRegions, requiresInput);
         this.pattern = Pattern.compile(pattern);
     }
 
     /**
-     * Convenience constructor accepting the supported regions as varargs.
+     * Convenience constructor accepting the supported regions as varargs. Pattern
+     * tags prompt for a typed value by default, since a concrete value is needed.
      */
     public PatternTag(String name, String pattern, String usage, String description, String... supportedRegions) {
-        this(name, pattern, usage, description, Set.of(supportedRegions));
+        this(name, pattern, usage, description, true, Set.of(supportedRegions));
     }
 
     /**

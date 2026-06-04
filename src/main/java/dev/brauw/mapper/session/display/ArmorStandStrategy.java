@@ -15,6 +15,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
@@ -65,6 +66,10 @@ public class ArmorStandStrategy implements RegionDisplayStrategy<PointRegion> {
 
                 // Important, because we don't want the entity to be saved in case the server shuts down
                 spawned.setPersistent(false);
+
+                // Stamp the owning region's id so a click on this entity can be resolved back to the region
+                spawned.getPersistentDataContainer().set(
+                        plugin.getRegionIdKey(), PersistentDataType.STRING, region.getId().toString());
 
                 // Direction to rotation angles
                 Vector direction = location.getDirection();

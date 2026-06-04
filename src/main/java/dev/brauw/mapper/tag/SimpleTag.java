@@ -19,7 +19,7 @@ public class SimpleTag extends Tag {
      * @param supportedRegions the region names this tag is offered on
      */
     public SimpleTag(String name, String usage, String description, Set<String> supportedRegions) {
-        super(name, usage, description, supportedRegions);
+        super(name, usage, description, supportedRegions, false);
     }
 
     /**

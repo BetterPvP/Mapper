@@ -1,5 +1,6 @@
 package dev.brauw.mapper.gui.tag;
 
+import dev.brauw.mapper.gui.GuiManager;
 import dev.brauw.mapper.gui.button.BackItem;
 import dev.brauw.mapper.gui.button.ForwardItem;
 import dev.brauw.mapper.region.Region;
@@ -26,16 +27,21 @@ import xyz.xenondevs.invui.item.impl.SimpleItem;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public class GuiTagEditor extends AbstractPagedGui<Item> {
 
     private final Region region;
+    private final TagRegistry tagRegistry;
+    private final GuiManager guiManager;
     private final List<Tag> availableTags;
 
-    public GuiTagEditor(Region region, TagRegistry tagRegistry) {
+    public GuiTagEditor(Region region, TagRegistry tagRegistry, GuiManager guiManager) {
         super(9, 4, false, 10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25);
         this.region = region;
+        this.tagRegistry = tagRegistry;
+        this.guiManager = guiManager;
         this.availableTags = tagRegistry.getTags(region.getName());
 
         Structure structure = new Structure(
@@ -93,31 +99,57 @@ public class GuiTagEditor extends AbstractPagedGui<Item> {
             this.activeTags = activeTags;
         }
 
+        /**
+         * @return the concrete applied value of this tag on the region, if any.
+         * For a pattern tag this is e.g. {@code level:47}; for a simple tag it is
+         * its own name.
+         */
+        private Optional<String> appliedValue() {
+            return activeTags.stream().filter(tag::matches).findFirst();
+        }
+
         @Override
         public ItemProvider getItemProvider() {
-            boolean active = activeTags.contains(tag.name());
+            Optional<String> applied = appliedValue();
+            boolean active = applied.isPresent();
             Material material = active ? Material.GREEN_CONCRETE : Material.RED_CONCRETE;
 
-            Component title = Component.text("#" + tag.name(), NamedTextColor.YELLOW);
+            // When active show the concrete value (e.g. #level:47), otherwise the tag's name.
+            Component title = Component.text("#" + applied.orElseGet(tag::name), NamedTextColor.YELLOW);
 
-            return new ItemBuilder(material)
+            ItemBuilder builder = new ItemBuilder(material)
                     .setDisplayName(new AdventureComponentWrapper(title))
                     .addLoreLines(
                             new AdventureComponentWrapper(Component.text(tag.usage(), NamedTextColor.GOLD)),
                             new AdventureComponentWrapper(Component.text(tag.description(), NamedTextColor.GRAY))
                     );
+
+            Component hint = active
+                    ? Component.text("Click to remove", NamedTextColor.RED)
+                    : Component.text(tag.requiresInput() ? "Click to set a value" : "Click to add", NamedTextColor.GREEN);
+            return builder.addLoreLines(new AdventureComponentWrapper(hint));
         }
 
         @Override
         public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent event) {
-            if (activeTags.contains(tag.name())) {
-                activeTags.remove(tag.name());
-            } else {
-                activeTags.add(tag.name());
+            // Remove any value of this tag's type if one is already applied.
+            if (appliedValue().isPresent()) {
+                activeTags.removeIf(tag::matches);
+                notifyWindows();
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 0.5f);
+                return;
             }
+
+            // Input tags open an anvil GUI to type and validate a concrete value.
+            if (tag.requiresInput()) {
+                guiManager.openTagValueInput(player, region, tagRegistry, tag, activeTags::add);
+                return;
+            }
+
+            // Simple tags toggle their fixed name directly.
+            activeTags.add(tag.name());
             notifyWindows();
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f,
-                    activeTags.contains(tag.name()) ? 2.0f : 0.5f);
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
         }
     }
 }

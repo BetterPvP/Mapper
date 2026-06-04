@@ -27,6 +27,7 @@ public abstract class Tag {
     private final String usage;
     private final String description;
     private final Set<String> supportedRegions;
+    private final boolean requiresInput;
 
     /**
      * Creates a new tag.
@@ -36,12 +37,16 @@ public abstract class Tag {
      * @param usage            a short usage hint shown in commands
      * @param description      a human-readable description shown in commands and GUIs
      * @param supportedRegions the region names this tag is offered on
+     * @param requiresInput    whether selecting this tag prompts the player to type
+     *                         a concrete value (e.g. {@code level:47}) instead of
+     *                         toggling its fixed {@link #name() name}
      */
-    protected Tag(String name, String usage, String description, Set<String> supportedRegions) {
+    protected Tag(String name, String usage, String description, Set<String> supportedRegions, boolean requiresInput) {
         this.name = name;
         this.usage = usage;
         this.description = description;
         this.supportedRegions = new HashSet<>(supportedRegions);
+        this.requiresInput = requiresInput;
     }
 
     /**
@@ -73,6 +78,17 @@ public abstract class Tag {
      */
     public Set<String> supportedRegions() {
         return Collections.unmodifiableSet(supportedRegions);
+    }
+
+    /**
+     * Whether selecting this tag should prompt the player to type a concrete
+     * value (validated by {@link #matches(String)}) rather than toggling its
+     * fixed {@link #name() name}.
+     *
+     * @return true if this tag requires typed input
+     */
+    public boolean requiresInput() {
+        return requiresInput;
     }
 
     /**

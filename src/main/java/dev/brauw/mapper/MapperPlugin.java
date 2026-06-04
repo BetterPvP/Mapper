@@ -14,6 +14,7 @@ import dev.brauw.mapper.util.BukkitTaskScheduler;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import lombok.CustomLog;
 import lombok.Getter;
+import org.bukkit.NamespacedKey;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.incendo.cloud.annotations.AnnotationParser;
 import org.incendo.cloud.execution.ExecutionCoordinator;
@@ -37,12 +38,19 @@ public class MapperPlugin extends JavaPlugin {
     private GuiManager guiManager;
     private TagRegistry tagRegistry;
     private BukkitTaskScheduler taskScheduler;
+    /**
+     * Key used to stamp a region's UUID onto its display entities, so a clicked
+     * entity can be traced back to the region it represents.
+     */
+    private NamespacedKey regionIdKey;
 
     @Override
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
         BukkitLoggerFactory.initialize(this);
+
+        this.regionIdKey = new NamespacedKey(this, "region_id");
 
         this.taskScheduler = new BukkitTaskScheduler(this);
         this.regionToolManager = new RegionToolManager(this);

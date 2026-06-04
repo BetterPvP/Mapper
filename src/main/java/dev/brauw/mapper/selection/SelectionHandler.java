@@ -5,6 +5,7 @@ import dev.brauw.mapper.region.CuboidRegion;
 import dev.brauw.mapper.region.PointRegion;
 import dev.brauw.mapper.region.PolygonRegion;
 import dev.brauw.mapper.region.PerspectiveRegion;
+import dev.brauw.mapper.region.Region;
 import dev.brauw.mapper.region.RegionOptions;
 import dev.brauw.mapper.session.EditSession;
 import dev.brauw.mapper.tag.TagRegistry;
@@ -21,9 +22,11 @@ import org.bukkit.util.RayTraceResult;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.WeakHashMap;
 
 /**
@@ -33,6 +36,8 @@ import java.util.WeakHashMap;
  */
 @RequiredArgsConstructor
 public class SelectionHandler {
+
+    private static final double MIN_DISTANCE_TO_INTERACT = 0.4;
 
     private final GuiManager guiManager;
     private final TagRegistry tagRegistry;
@@ -253,20 +258,10 @@ public class SelectionHandler {
         final Location location = getTargetPoint(player);
         if (location == null) return;
 
-        session.getRegions().stream()
-                .filter(region -> region.contains(location) || (region instanceof PointRegion point && point.getLocation().distance(location) < 0.2))
-                .findFirst()
+        findRegionAt(session, location)
                 .ifPresentOrElse(
-                        region -> {
-                            session.removeRegion(region);
-                            player.sendMessage(Component.text("Region deleted: ", NamedTextColor.RED)
-                                    .append(Component.text(region.getName(), NamedTextColor.DARK_RED)));
-                            player.playSound(player.getLocation(), Sound.BLOCK_GRINDSTONE_USE, 1.0f, 1.0f);
-                        },
-                        () -> {
-                            player.sendMessage(Component.text("No region found at this location.", NamedTextColor.RED));
-                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
-                        }
+                        region -> deleteRegion(session, region),
+                        () -> notifyNoRegion(player)
                 );
     }
 
@@ -275,32 +270,117 @@ public class SelectionHandler {
         final Location location = getTargetPoint(player);
         if (location == null) return;
 
-        session.getRegions().stream()
-                .filter(region -> region.contains(location) || (region instanceof PointRegion point && point.getLocation().distance(location) < 0.2))
-                .findFirst()
+        findRegionAt(session, location)
                 .ifPresentOrElse(
-                        region -> {
-                            if (!tagRegistry.hasTags(region.getName())) {
-                                player.sendMessage(Component.text("No tags available for ", NamedTextColor.RED)
-                                        .append(Component.text("'" + region.getName() + "'", NamedTextColor.DARK_RED))
-                                        .append(Component.text(".", NamedTextColor.RED)));
-                                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
-                                return;
-                            }
-                            guiManager.openTagEditor(player, region, tagRegistry);
-                        },
-                        () -> {
-                            player.sendMessage(Component.text("No region found at this location.", NamedTextColor.RED));
-                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
-                        }
+                        region -> openTagEditor(session, region),
+                        () -> notifyNoRegion(player)
                 );
+    }
+
+    /**
+     * Finds the region the player is targeting at the given location, resolving
+     * overlaps in favour of the most specific (smallest) region. This is what
+     * lets a player select a label region nested inside a larger cuboid instead
+     * of always grabbing the enclosing cuboid.
+     *
+     * @param session  the edit session whose regions to search
+     * @param location the targeted location
+     * @return the most specific region containing the location, if any
+     */
+    private Optional<Region> findRegionAt(EditSession session, Location location) {
+        return session.getRegions().stream()
+                .filter(region -> region.contains(location)
+                        || (region instanceof PointRegion point && point.getLocation().distance(location) < 0.2))
+                .min(Comparator.comparingDouble(this::regionSpecificity));
+    }
+
+    /**
+     * Computes a specificity score for a region: lower means "more specific" and
+     * should win when regions overlap. A point is the most specific thing a
+     * player can target; a large cuboid the least.
+     *
+     * <ul>
+     *   <li>{@link PointRegion} / {@link PerspectiveRegion} → 0 (always wins)</li>
+     *   <li>{@link CuboidRegion} → its block volume (inclusive bounds)</li>
+     *   <li>{@link PolygonRegion} → the volume of its smallest child, since the
+     *       player is standing inside exactly one child cuboid</li>
+     * </ul>
+     *
+     * @param region the region to score
+     * @return the specificity score; smaller wins
+     */
+    private double regionSpecificity(Region region) {
+        return switch (region) {
+            case CuboidRegion cuboid -> cuboidVolume(cuboid);
+            case PolygonRegion polygon -> polygon.getChildren().stream()
+                    .mapToDouble(this::cuboidVolume)
+                    .min()
+                    .orElse(Double.MAX_VALUE);
+            default -> 0; // PointRegion / PerspectiveRegion: point-like, always most specific
+        };
+    }
+
+    /**
+     * Computes the inclusive block volume of a cuboid. Bounds are inclusive
+     * (see {@link CuboidRegion#contains}), so each span gets a +1 and a single
+     * block scores 1 rather than 0.
+     *
+     * @param cuboid the cuboid to measure
+     * @return the block volume
+     */
+    private double cuboidVolume(CuboidRegion cuboid) {
+        Location min = cuboid.getMin();
+        Location max = cuboid.getMax();
+        double width = max.getBlockX() - min.getBlockX() + 1;
+        double height = max.getBlockY() - min.getBlockY() + 1;
+        double depth = max.getBlockZ() - min.getBlockZ() + 1;
+        return width * height * depth;
+    }
+
+    /**
+     * Deletes a region that has already been resolved (e.g. from an entity click),
+     * skipping the raytrace + "no region found" path.
+     *
+     * @param session the owning edit session
+     * @param region  the region to delete
+     */
+    public void deleteRegion(EditSession session, Region region) {
+        Player player = session.getOwner();
+        session.removeRegion(region);
+        player.sendMessage(Component.text("Region deleted: ", NamedTextColor.RED)
+                .append(Component.text(region.getName(), NamedTextColor.DARK_RED)));
+        player.playSound(player.getLocation(), Sound.BLOCK_GRINDSTONE_USE, 1.0f, 1.0f);
+    }
+
+    /**
+     * Opens the tag editor for a region that has already been resolved (e.g. from
+     * an entity click), skipping the raytrace + "no region found" path.
+     *
+     * @param session the owning edit session
+     * @param region  the region whose tags to edit
+     */
+    public void openTagEditor(EditSession session, Region region) {
+        Player player = session.getOwner();
+        if (!tagRegistry.hasTags(region.getName())) {
+            player.sendMessage(Component.text("No tags available for ", NamedTextColor.RED)
+                    .append(Component.text("'" + region.getName() + "'", NamedTextColor.DARK_RED))
+                    .append(Component.text(".", NamedTextColor.RED)));
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+            return;
+        }
+        guiManager.openTagEditor(player, region, tagRegistry);
+    }
+
+    private void notifyNoRegion(Player player) {
+        player.sendMessage(Component.text("No region found at this location.", NamedTextColor.RED));
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
     }
 
     private static @Nullable Location getTargetBlock(Player player) {
         RayTraceResult result = player.getWorld().rayTraceBlocks(
                 player.getEyeLocation(),
                 player.getLocation().getDirection(),
-                Objects.requireNonNull(player.getAttribute(Attribute.BLOCK_INTERACTION_RANGE)).getValue() + 0.2,
+                (Objects.requireNonNull(player.getAttribute(Attribute.BLOCK_INTERACTION_RANGE)).getValue() + MIN_DISTANCE_TO_INTERACT),
                 FluidCollisionMode.NEVER,
                 true
         );
@@ -316,7 +396,7 @@ public class SelectionHandler {
         RayTraceResult result = player.getWorld().rayTraceBlocks(
                 player.getEyeLocation(),
                 player.getLocation().getDirection(),
-                Objects.requireNonNull(player.getAttribute(Attribute.BLOCK_INTERACTION_RANGE)).getValue() + 0.2,
+                (Objects.requireNonNull(player.getAttribute(Attribute.BLOCK_INTERACTION_RANGE)).getValue() + MIN_DISTANCE_TO_INTERACT),
                 FluidCollisionMode.NEVER,
                 true
         );

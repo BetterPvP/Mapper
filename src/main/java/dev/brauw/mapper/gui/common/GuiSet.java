@@ -3,6 +3,7 @@ package dev.brauw.mapper.gui.common;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -61,6 +62,11 @@ public class GuiSet<T> extends AbstractGui {
 
         @Override
         public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent event) {
+            // Do not accept a value the validator rejects (e.g. it doesn't match a tag's pattern).
+            if (!validator.test(value.get())) {
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+                return;
+            }
             player.closeInventory();
             creator.run();
         }
