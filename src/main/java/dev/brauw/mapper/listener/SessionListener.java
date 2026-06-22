@@ -1,6 +1,6 @@
 package dev.brauw.mapper.listener;
 
-import dev.brauw.mapper.MapperPlugin;
+import dev.brauw.mapper.Mapper;
 import dev.brauw.mapper.session.event.SessionCreateEvent;
 import dev.brauw.mapper.session.event.SessionEndEvent;
 import dev.brauw.mapper.tool.RegionToolManager;
@@ -14,7 +14,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 @RequiredArgsConstructor
 public class SessionListener implements Listener {
 
-    private final MapperPlugin plugin;
+    private final Mapper mapper;
     private final RegionToolManager toolManager;
     
     @EventHandler
@@ -27,7 +27,7 @@ public class SessionListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         // Only give tools if they have an active session
-        if (plugin.getSessionManager().hasSession(player)) {
+        if (mapper.getSessionManager().hasSession(player)) {
             toolManager.giveTools(player);
         }
     }
@@ -36,7 +36,7 @@ public class SessionListener implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         // Clear the tools from inventory when player quits
-        if (plugin.getSessionManager().hasSession(player)) {
+        if (mapper.getSessionManager().hasSession(player)) {
             toolManager.removeTools(player);
         }
     }

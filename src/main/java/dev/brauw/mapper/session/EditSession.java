@@ -1,6 +1,5 @@
 package dev.brauw.mapper.session;
 
-import dev.brauw.mapper.MapperPlugin;
 import dev.brauw.mapper.region.Region;
 import lombok.CustomLog;
 import lombok.Getter;

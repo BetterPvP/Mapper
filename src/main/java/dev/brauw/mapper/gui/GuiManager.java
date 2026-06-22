@@ -1,6 +1,6 @@
 package dev.brauw.mapper.gui;
 
-import dev.brauw.mapper.MapperPlugin;
+import dev.brauw.mapper.Mapper;
 import dev.brauw.mapper.gui.common.GuiSet;
 import dev.brauw.mapper.gui.common.GuiSetName;
 import dev.brauw.mapper.gui.metadata.GuiMetadata;
@@ -25,10 +25,10 @@ import java.util.function.Consumer;
 
 public class GuiManager {
 
-    private final MapperPlugin mapperPlugin;
+    private final Mapper mapper;
 
-    public GuiManager(MapperPlugin mapperPlugin) {
-        this.mapperPlugin = mapperPlugin;
+    public GuiManager(Mapper mapper) {
+        this.mapper = mapper;
         Structure.addGlobalIngredient('#', new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).setDisplayName(""));
     }
 
@@ -80,7 +80,7 @@ public class GuiManager {
                     input.update();
                 })
                 .setTitle("Enter " + tag.usage())
-                .addCloseHandler(() -> mapperPlugin.getTaskScheduler().scheduleTask(
+                .addCloseHandler(() -> mapper.getTaskScheduler().scheduleTask(
                         () -> openTagEditor(player, region, tagRegistry), 1L))
                 .open(player);
     }
@@ -88,7 +88,7 @@ public class GuiManager {
     public void openMetadataEditor(Player player, MapMetadata mapMetadata) {
         Window.single()
                 .setTitle("Map Metadata")
-                .setGui(new GuiMetadata(mapperPlugin.getTaskScheduler(), this, mapperPlugin.getMetadataManager(), player, mapMetadata))
+                .setGui(new GuiMetadata(mapper.getTaskScheduler(), this, mapper.getMetadataManager(), player, mapMetadata))
                 .open(player);
     }
 }

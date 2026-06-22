@@ -1,6 +1,6 @@
 package dev.brauw.mapper.command;
 
-import dev.brauw.mapper.MapperPlugin;
+import dev.brauw.mapper.Mapper;
 import dev.brauw.mapper.export.ExportStrategy;
 import dev.brauw.mapper.export.JsonExportStrategy;
 import dev.brauw.mapper.gui.metadata.GuiMetadata;
@@ -39,7 +39,7 @@ import java.util.stream.Stream;
 @Permission("mapper.use")
 public class MapperCommand {
 
-    private final MapperPlugin mapperPlugin;
+    private final Mapper mapper;
     private final Component prefix = MiniMessage.miniMessage().deserialize("<gradient:#ff2424:#ff0000><bold>Mapper</bold></gradient> ");
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
 
@@ -70,7 +70,7 @@ public class MapperCommand {
     @Command("tags <region>")
     public void tags(CommandSourceStack source, @Argument("region") String region) {
         final CommandSender sender = source.getSender();
-        final List<Tag> tags = mapperPlugin.getTagRegistry().getTags(region);
+        final List<Tag> tags = mapper.getTagRegistry().getTags(region);
 
         if (tags.isEmpty()) {
             sender.sendMessage(prefix.append(Component.text("No tags available for ", NamedTextColor.RED))
@@ -96,7 +96,7 @@ public class MapperCommand {
             return;
         }
 
-        final SessionManager sessionManager = mapperPlugin.getSessionManager();
+        final SessionManager sessionManager = mapper.getSessionManager();
         if (sessionManager.hasSession(player)) {
             sender.sendMessage(prefix.append(Component.text("You already have an active session.", NamedTextColor.RED)));
             player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 0.4f);
@@ -105,8 +105,8 @@ public class MapperCommand {
 
         final EditSession session = sessionManager.getSession(player);// Creates a new session
         // load regions from file so they can be edited
-        final JsonExportStrategy json = (JsonExportStrategy) mapperPlugin.getExportManager().getAvailableStrategies().get("json");
-        final File file = mapperPlugin.getStorageManager().getRegionsFile(player.getWorld());
+        final JsonExportStrategy json = (JsonExportStrategy) mapper.getExportManager().getAvailableStrategies().get("json");
+        final File file = mapper.getStorageManager().getRegionsFile(player.getWorld());
         final List<Region> read = json.read(file);
         read.forEach(session::addRegion);
 
@@ -122,7 +122,7 @@ public class MapperCommand {
             return;
         }
 
-        final SessionManager sessionManager = mapperPlugin.getSessionManager();
+        final SessionManager sessionManager = mapper.getSessionManager();
         if (!sessionManager.hasSession(player)) {
             sender.sendMessage(prefix.append(Component.text("You do not have an active session.", NamedTextColor.RED)));
             player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 0.4f);
@@ -137,12 +137,12 @@ public class MapperCommand {
             return;
         }
 
-        final ExportStrategy exportStrategy = this.mapperPlugin.getExportManager().getAvailableStrategies().get("json");
-        final File file = mapperPlugin.getStorageManager().getRegionsFile(player.getWorld());
+        final ExportStrategy exportStrategy = this.mapper.getExportManager().getAvailableStrategies().get("json");
+        final File file = mapper.getStorageManager().getRegionsFile(player.getWorld());
         exportStrategy.export(regions, file);
         sender.sendMessage(prefix.append(Component.text("Regions saved.", NamedTextColor.GREEN)));
         player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
-        mapperPlugin.getSessionManager().endSession(player);
+        mapper.getSessionManager().endSession(player);
     }
 
     @Command("export [strategy]")
@@ -153,7 +153,7 @@ public class MapperCommand {
             return;
         }
 
-        final SessionManager sessionManager = mapperPlugin.getSessionManager();
+        final SessionManager sessionManager = mapper.getSessionManager();
         if (!sessionManager.hasSession(player)) {
             sender.sendMessage(prefix.append(Component.text("You do not have an active session.", NamedTextColor.RED)));
             player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 0.4f);
@@ -168,10 +168,10 @@ public class MapperCommand {
             return;
         }
 
-        final ExportStrategy exportStrategy = this.mapperPlugin.getExportManager().getAvailableStrategies().get(strategy.toLowerCase());
+        final ExportStrategy exportStrategy = this.mapper.getExportManager().getAvailableStrategies().get(strategy.toLowerCase());
         if (exportStrategy == null) {
             player.sendMessage(prefix.append(Component.text("Unknown export strategy.", NamedTextColor.RED)));
-            final List<TextComponent> strategies = mapperPlugin.getExportManager().getAvailableStrategies().keySet().stream()
+            final List<TextComponent> strategies = mapper.getExportManager().getAvailableStrategies().keySet().stream()
                     .map(str -> Component.text(str, NamedTextColor.WHITE))
                     .toList();
             sender.sendMessage(Component.text("Available strategies: ", NamedTextColor.GRAY)
@@ -180,7 +180,7 @@ public class MapperCommand {
             return;
         }
 
-        final File folder = mapperPlugin.getStorageManager().getExportDirectory(player.getWorld());
+        final File folder = mapper.getStorageManager().getExportDirectory(player.getWorld());
         final File file = new File(folder, dateFormat.format(new Date()) + ".json");
         exportStrategy.export(regions, file);
 
@@ -197,7 +197,7 @@ public class MapperCommand {
 
         sender.sendMessage(savedMessage);
         player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
-        mapperPlugin.getSessionManager().endSession(player);
+        mapper.getSessionManager().endSession(player);
     }
 
     @Command("metadata")
@@ -209,11 +209,11 @@ public class MapperCommand {
         }
 
         final World world = player.getWorld();
-        final MetadataManager metadataManager = mapperPlugin.getMetadataManager();
+        final MetadataManager metadataManager = mapper.getMetadataManager();
         final MapMetadata metadata = metadataManager.loadOrCreateMetadata(world);
 
         // Open metadata GUI
-        mapperPlugin.getGuiManager().openMetadataEditor(player, metadata);
+        mapper.getGuiManager().openMetadataEditor(player, metadata);
     }
 
     @Command("discard")
@@ -224,7 +224,7 @@ public class MapperCommand {
             return;
         }
 
-        final SessionManager sessionManager = mapperPlugin.getSessionManager();
+        final SessionManager sessionManager = mapper.getSessionManager();
         if (!sessionManager.hasSession(player)) {
             sender.sendMessage(prefix.append(Component.text("You do not have an active session.", NamedTextColor.RED)));
             player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 0.4f);

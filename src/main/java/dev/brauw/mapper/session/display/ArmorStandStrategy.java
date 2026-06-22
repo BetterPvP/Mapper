@@ -2,7 +2,6 @@ package dev.brauw.mapper.session.display;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import dev.brauw.mapper.MapperPlugin;
 import dev.brauw.mapper.region.PointRegion;
 import io.papermc.paper.entity.LookAnchor;
 import net.kyori.adventure.text.Component;
@@ -16,6 +15,7 @@ import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
@@ -35,10 +35,12 @@ public class ArmorStandStrategy implements RegionDisplayStrategy<PointRegion> {
     private final Map<PointRegion, TextDisplay> labels = new HashMap<>();
     private final Multimap<PointRegion, UUID> viewers = ArrayListMultimap.create();
     private final Map<UUID, Map<PointRegion, String>> playerTeams = new HashMap<>();
-    private final MapperPlugin plugin;
+    private final Plugin plugin;
+    private final NamespacedKey regionIdKey;
 
-    public ArmorStandStrategy(MapperPlugin plugin) {
+    public ArmorStandStrategy(Plugin plugin, NamespacedKey regionIdKey) {
         this.plugin = plugin;
+        this.regionIdKey = regionIdKey;
     }
 
     private ArmorStand getEntity(PointRegion region) {
@@ -69,7 +71,7 @@ public class ArmorStandStrategy implements RegionDisplayStrategy<PointRegion> {
 
                 // Stamp the owning region's id so a click on this entity can be resolved back to the region
                 spawned.getPersistentDataContainer().set(
-                        plugin.getRegionIdKey(), PersistentDataType.STRING, region.getId().toString());
+                        regionIdKey, PersistentDataType.STRING, region.getId().toString());
 
                 // Direction to rotation angles
                 Vector direction = location.getDirection();

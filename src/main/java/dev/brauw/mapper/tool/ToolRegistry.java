@@ -1,6 +1,5 @@
 package dev.brauw.mapper.tool;
 
-import dev.brauw.mapper.MapperPlugin;
 import lombok.Getter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -8,6 +7,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -38,7 +38,7 @@ public class ToolRegistry {
         }
     }
 
-    public ToolRegistry(MapperPlugin plugin) {
+    public ToolRegistry(Plugin plugin) {
         this.toolTypeKey = new NamespacedKey(plugin, "region_tool_type");
     }
 

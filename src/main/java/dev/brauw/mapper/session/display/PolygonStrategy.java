@@ -2,7 +2,6 @@ package dev.brauw.mapper.session.display;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import dev.brauw.mapper.MapperPlugin;
 import dev.brauw.mapper.region.CuboidRegion;
 import dev.brauw.mapper.region.PolygonRegion;
 import net.kyori.adventure.text.Component;
@@ -12,6 +11,7 @@ import org.bukkit.Location;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -27,11 +27,11 @@ import java.util.UUID;
 public class PolygonStrategy implements RegionDisplayStrategy<PolygonRegion> {
 
     private final BlockStrategy blockStrategy;
-    private final MapperPlugin plugin;
+    private final Plugin plugin;
     private final Map<PolygonRegion, TextDisplay> labels = new HashMap<>();
     private final Multimap<PolygonRegion, UUID> viewers = ArrayListMultimap.create();
 
-    public PolygonStrategy(MapperPlugin plugin, BlockStrategy blockStrategy) {
+    public PolygonStrategy(Plugin plugin, BlockStrategy blockStrategy) {
         this.plugin = plugin;
         this.blockStrategy = blockStrategy;
     }

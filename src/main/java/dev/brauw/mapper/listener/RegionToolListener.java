@@ -1,6 +1,6 @@
 package dev.brauw.mapper.listener;
 
-import dev.brauw.mapper.MapperPlugin;
+import dev.brauw.mapper.Mapper;
 import dev.brauw.mapper.region.Region;
 import dev.brauw.mapper.selection.SelectionHandler;
 import dev.brauw.mapper.session.EditSession;
@@ -24,7 +24,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RegionToolListener implements Listener {
 
-    private final MapperPlugin plugin;
+    private final Mapper mapper;
     private final RegionToolManager toolManager;
     private final SelectionHandler selectionHandler;
 
@@ -36,8 +36,8 @@ public class RegionToolListener implements Listener {
         if (item == null) return;
 
         // Check if player has active session
-        if (!plugin.getSessionManager().hasSession(player)) return;
-        EditSession session = plugin.getSessionManager().getSession(player);
+        if (!mapper.getSessionManager().hasSession(player)) return;
+        EditSession session = mapper.getSessionManager().getSession(player);
 
         // Process tool interactions
         if (toolManager.isTool(item, ToolType.CUBOID_WAND)) {
@@ -86,8 +86,8 @@ public class RegionToolListener implements Listener {
         ItemStack item = player.getInventory().getItemInMainHand();
         if (item.isEmpty()) return;
 
-        if (!plugin.getSessionManager().hasSession(player)) return;
-        EditSession session = plugin.getSessionManager().getSession(player);
+        if (!mapper.getSessionManager().hasSession(player)) return;
+        EditSession session = mapper.getSessionManager().getSession(player);
 
         Region region = resolveRegion(session, event.getRightClicked());
         if (region == null) return;
@@ -112,7 +112,7 @@ public class RegionToolListener implements Listener {
      */
     private @Nullable Region resolveRegion(EditSession session, Entity entity) {
         String rawId = entity.getPersistentDataContainer()
-                .get(plugin.getRegionIdKey(), PersistentDataType.STRING);
+                .get(mapper.getRegionIdKey(), PersistentDataType.STRING);
         if (rawId == null) return null;
 
         final UUID regionId = UUID.fromString(rawId);

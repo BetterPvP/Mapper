@@ -2,7 +2,6 @@ package dev.brauw.mapper.session.display;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import dev.brauw.mapper.MapperPlugin;
 import dev.brauw.mapper.region.CuboidRegion;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -13,6 +12,7 @@ import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Transformation;
 import org.jetbrains.annotations.NotNull;
 import org.joml.AxisAngle4f;
@@ -31,9 +31,9 @@ public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
     private final Map<CuboidRegion, BlockDisplay> displays = new HashMap<>();
     private final Map<CuboidRegion, TextDisplay> labels = new HashMap<>();
     private final Multimap<CuboidRegion, UUID> viewers = ArrayListMultimap.create();
-    private final MapperPlugin plugin;
+    private final Plugin plugin;
 
-    public BlockStrategy(MapperPlugin plugin) {
+    public BlockStrategy(Plugin plugin) {
         this.plugin = plugin;
     }
 

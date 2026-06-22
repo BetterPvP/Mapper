@@ -1,6 +1,6 @@
 package dev.brauw.mapper.session;
 
-import dev.brauw.mapper.MapperPlugin;
+import dev.brauw.mapper.Mapper;
 import dev.brauw.mapper.region.Region;
 import dev.brauw.mapper.session.display.*;
 import dev.brauw.mapper.session.event.SessionCreateEvent;
@@ -23,24 +23,24 @@ public class SessionManager {
     private final EnumMap<Region.RegionType, RegionDisplayStrategy<?>> displayStrategies;
     private final Map<UUID, EditSession> playerSessions;
     private final long sessionTimeoutMillis;
-    private final MapperPlugin plugin;
+    private final Mapper mapper;
     private BukkitTask revalidateTask;
-    
+
     /**
      * Creates a new SessionManager with the default timeout.
      */
-    public SessionManager(MapperPlugin plugin) {
-        this(TimeUnit.HOURS.toMillis(1), plugin); // Default 1 hour timeout
+    public SessionManager(Mapper mapper) {
+        this(TimeUnit.HOURS.toMillis(1), mapper); // Default 1 hour timeout
     }
-    
+
     /**
      * Creates a new SessionManager with a custom timeout.
      *
      * @param sessionTimeoutMillis timeout in milliseconds for inactive sessions
      */
-    public SessionManager(long sessionTimeoutMillis, MapperPlugin plugin) {
+    public SessionManager(long sessionTimeoutMillis, Mapper mapper) {
         this.sessionTimeoutMillis = sessionTimeoutMillis;
-        this.plugin = plugin;
+        this.mapper = mapper;
         this.playerSessions = new HashMap<>();
         this.displayStrategies = new EnumMap<>(Region.RegionType.class);
         createDisplayStrategies();
@@ -51,7 +51,7 @@ public class SessionManager {
     }
 
     private void startRevalidateTask() {
-        this.revalidateTask = plugin.getTaskScheduler().scheduleRecurringTask(() -> {
+        this.revalidateTask = mapper.getTaskScheduler().scheduleRecurringTask(() -> {
             for (EditSession session : playerSessions.values()) {
                 final Player owner = session.getOwner();
                 if (!owner.isOnline()) continue;
@@ -64,10 +64,11 @@ public class SessionManager {
     }
 
     private void createDisplayStrategies() {
-        final ItemStrategy pointStrategy = new ItemStrategy(plugin, Material.REDSTONE_LAMP);
-        final ArmorStandStrategy perspectiveStrategy =  new ArmorStandStrategy(plugin);
-        final BlockStrategy blockStrategy = new BlockStrategy(plugin);
-        final PolygonStrategy polygonStrategy = new PolygonStrategy(plugin, blockStrategy);
+        final ItemStrategy pointStrategy = new ItemStrategy(mapper.getPlugin(), Material.REDSTONE_LAMP);
+        final ArmorStandStrategy perspectiveStrategy =
+                new ArmorStandStrategy(mapper.getPlugin(), mapper.getRegionIdKey());
+        final BlockStrategy blockStrategy = new BlockStrategy(mapper.getPlugin());
+        final PolygonStrategy polygonStrategy = new PolygonStrategy(mapper.getPlugin(), blockStrategy);
         this.displayStrategies.put(Region.RegionType.POLYGON, polygonStrategy);
         this.displayStrategies.put(Region.RegionType.CUBOID, blockStrategy);
         this.displayStrategies.put(Region.RegionType.POINT, pointStrategy);
