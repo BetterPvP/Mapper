@@ -108,6 +108,8 @@ public class MapperCommand {
         final JsonExportStrategy json = (JsonExportStrategy) mapper.getExportManager().getAvailableStrategies().get("json");
         final File file = mapper.getStorageManager().getRegionsFile(player.getWorld());
         final List<Region> read = json.read(file);
+        // Locations are stored without a world; bind them to the editing world before display.
+        read.forEach(region -> region.setWorld(player.getWorld()));
         read.forEach(session::addRegion);
 
         sender.sendMessage(prefix.append(Component.text("Session started.", NamedTextColor.GREEN)));
