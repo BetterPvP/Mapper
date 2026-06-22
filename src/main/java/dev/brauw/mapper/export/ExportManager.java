@@ -1,8 +1,8 @@
 package dev.brauw.mapper.export;
 
-import dev.brauw.mapper.MapperPlugin;
 import dev.brauw.mapper.region.Region;
 import lombok.CustomLog;
+import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -15,15 +15,15 @@ import java.util.Map;
  */
 @CustomLog
 public class ExportManager {
-    private final MapperPlugin plugin;
+    private final Plugin plugin;
     private final Map<String, ExportStrategy> exportStrategies = new HashMap<>();
 
     /**
      * Constructs an ExportManager with the specified plugin.
      *
-     * @param plugin the plugin instance
+     * @param plugin the host plugin instance
      */
-    public ExportManager(MapperPlugin plugin) {
+    public ExportManager(Plugin plugin) {
         this.plugin = plugin;
         registerDefaultStrategies();
     }

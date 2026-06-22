@@ -62,17 +62,19 @@ public class MapperPlugin extends JavaPlugin {
         this.listenerManager = new ListenerManager(this, regionToolManager, selectionHandler);
         this.listenerManager.registerListeners();
         this.sessionManager = new SessionManager(5 * 60 * 1000, this);
-        this.exportManager = new ExportManager(this);
         this.commandManager = PaperCommandManager.builder()
                 .executionCoordinator(ExecutionCoordinator.simpleCoordinator())
                 .buildOnEnable(this);
 
-        // storage
-        String dataDirectory = getConfig().getString("storage.data-directory", "%world%");
-        String regionsFile = getConfig().getString("storage.regions-file", "dataPoints.json");
-        String metadataFile = getConfig().getString("storage.metadata-file", "metadata.json");
-        String exportDirectory = getConfig().getString("storage.export-directory", "%plugin%/exports");
-        this.storageManager = new StorageManager(this, dataDirectory, regionsFile, metadataFile, exportDirectory);
+        // Headless data layer (storage + export); shared with embedded/shaded consumers via Mapper.get().
+        final StorageSettings storageSettings = new StorageSettings(
+                getConfig().getString("storage.data-directory", "%world%"),
+                getConfig().getString("storage.regions-file", "dataPoints.json"),
+                getConfig().getString("storage.metadata-file", "metadata.json"),
+                getConfig().getString("storage.export-directory", "%plugin%/exports"));
+        final Mapper mapper = Mapper.initialize(this, storageSettings);
+        this.exportManager = mapper.getExportManager();
+        this.storageManager = mapper.getStorageManager();
 
         // metadata
         String defaultName = getConfig().getString("metadata.default-map-name", "Unnamed Map");

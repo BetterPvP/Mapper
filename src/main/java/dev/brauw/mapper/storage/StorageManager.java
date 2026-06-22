@@ -1,7 +1,7 @@
 package dev.brauw.mapper.storage;
 
-import dev.brauw.mapper.MapperPlugin;
 import org.bukkit.World;
+import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 
@@ -20,13 +20,13 @@ public class StorageManager {
     /** Placeholder replaced with the plugin's data folder. */
     private static final String PLUGIN_PLACEHOLDER = "%plugin%";
 
-    private final MapperPlugin plugin;
+    private final Plugin plugin;
     private final String dataDirectory;
     private final String regionsFileName;
     private final String metadataFileName;
     private final String exportDirectory;
 
-    public StorageManager(MapperPlugin plugin, String dataDirectory, String regionsFileName,
+    public StorageManager(Plugin plugin, String dataDirectory, String regionsFileName,
                           String metadataFileName, String exportDirectory) {
         this.plugin = plugin;
         this.dataDirectory = dataDirectory;
@@ -76,7 +76,7 @@ public class StorageManager {
      * <p>
      * The string may contain the placeholders {@code %world%} (the world's own
      * folder, see {@link World#getWorldFolder()}) and {@code %plugin%} (the
-     * plugin data folder, see {@link MapperPlugin#getDataFolder()}). After
+     * plugin data folder, see {@link Plugin#getDataFolder()}). After
      * substitution, the path may be absolute or relative; relative paths are
      * resolved against the server root.
      *
