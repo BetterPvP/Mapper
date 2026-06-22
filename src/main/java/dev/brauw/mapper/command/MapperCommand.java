@@ -15,6 +15,8 @@ import lombok.AllArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Sound;
@@ -104,7 +106,7 @@ public class MapperCommand {
         final EditSession session = sessionManager.getSession(player);// Creates a new session
         // load regions from file so they can be edited
         final JsonExportStrategy json = (JsonExportStrategy) mapperPlugin.getExportManager().getAvailableStrategies().get("json");
-        final File file = new File(player.getWorld().getWorldFolder(), "dataPoints.json");
+        final File file = mapperPlugin.getStorageManager().getRegionsFile(player.getWorld());
         final List<Region> read = json.read(file);
         read.forEach(session::addRegion);
 
@@ -136,7 +138,7 @@ public class MapperCommand {
         }
 
         final ExportStrategy exportStrategy = this.mapperPlugin.getExportManager().getAvailableStrategies().get("json");
-        final File file = new File(player.getWorld().getWorldFolder(), "dataPoints.json");
+        final File file = mapperPlugin.getStorageManager().getRegionsFile(player.getWorld());
         exportStrategy.export(regions, file);
         sender.sendMessage(prefix.append(Component.text("Regions saved.", NamedTextColor.GREEN)));
         player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
@@ -178,15 +180,22 @@ public class MapperCommand {
             return;
         }
 
-        final File folder = new File(mapperPlugin.getDataFolder(), "exports");
-        if (!folder.exists()) {
-            folder.mkdirs();
-        }
-
+        final File folder = mapperPlugin.getStorageManager().getExportDirectory(player.getWorld());
         final File file = new File(folder, dateFormat.format(new Date()) + ".json");
         exportStrategy.export(regions, file);
-        sender.sendMessage(prefix.append(Component.text("Regions saved to: ", NamedTextColor.GREEN))
-                .append(Component.text("/exports/" + file.getName(), NamedTextColor.DARK_GREEN)));
+
+        Component savedMessage = prefix.append(Component.text("Regions saved to: ", NamedTextColor.GREEN))
+                .append(Component.text(file.getName(), NamedTextColor.DARK_GREEN));
+
+        // If the strategy can produce a copyable string, make the message click-to-copy.
+        final String serialized = exportStrategy.serialize(regions);
+        if (serialized != null) {
+            savedMessage = savedMessage
+                    .hoverEvent(HoverEvent.showText(Component.text("Click to copy the exported data", NamedTextColor.GRAY)))
+                    .clickEvent(ClickEvent.copyToClipboard(serialized));
+        }
+
+        sender.sendMessage(savedMessage);
         player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
         mapperPlugin.getSessionManager().endSession(player);
     }

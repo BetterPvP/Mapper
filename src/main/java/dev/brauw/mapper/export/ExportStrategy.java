@@ -21,6 +21,18 @@ public interface ExportStrategy {
     boolean export(List<Region> regions, File folder);
 
     /**
+     * Serializes the regions into a string representation suitable for copying
+     * to the clipboard, if this strategy supports it.
+     *
+     * @param regions the list of regions to serialize
+     * @return the serialized data, or {@code null} if this strategy cannot
+     *         produce a copyable string representation
+     */
+    default String serialize(List<Region> regions) {
+        return null;
+    }
+
+    /**
      * Gets the name of the export strategy.
      *
      * @return the name of the export strategy

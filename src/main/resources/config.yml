@@ -3,3 +3,19 @@ metadata:
   available-gamemodes:
     - "Capture The Flag"
     - "Domination"
+
+# Controls where region data and metadata are saved to and loaded from.
+storage:
+  # Base directory used by /mapper save, /mapper edit and /mapper metadata.
+  # Placeholders:
+  #   %world%  - the world's own folder (default behaviour)
+  #   %plugin% - this plugin's data folder
+  # Relative paths are resolved against the server root folder.
+  data-directory: "%world%"
+  # File name (within data-directory) used to store region data.
+  regions-file: "dataPoints.json"
+  # File name (within data-directory) used to store map metadata.
+  metadata-file: "metadata.json"
+  # Directory used by /mapper export for timestamped exports.
+  # %world% and %plugin% are supported; relative paths resolve against the server root.
+  export-directory: "%plugin%/exports"

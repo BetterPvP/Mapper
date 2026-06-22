@@ -112,6 +112,22 @@ public class JsonExportStrategy implements ExportStrategy {
     }
 
     @Override
+    public String serialize(List<Region> regions) {
+        Preconditions.checkNotNull(regions);
+        Preconditions.checkArgument(!regions.isEmpty());
+
+        try {
+            final RegionCollection collection = new RegionCollection();
+            collection.addAll(regions);
+            // INDENT_OUTPUT is enabled on the mapper, so this is already prettified.
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(collection);
+        } catch (IOException e) {
+            log.severe("Failed to serialize regions to JSON: " + e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
     public String getName() {
         return "JSON";
     }

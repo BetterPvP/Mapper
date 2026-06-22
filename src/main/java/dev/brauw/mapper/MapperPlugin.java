@@ -8,6 +8,7 @@ import dev.brauw.mapper.logger.BukkitLoggerFactory;
 import dev.brauw.mapper.metadata.MetadataManager;
 import dev.brauw.mapper.selection.SelectionHandler;
 import dev.brauw.mapper.session.SessionManager;
+import dev.brauw.mapper.storage.StorageManager;
 import dev.brauw.mapper.tag.TagRegistry;
 import dev.brauw.mapper.tool.RegionToolManager;
 import dev.brauw.mapper.util.BukkitTaskScheduler;
@@ -33,6 +34,7 @@ public class MapperPlugin extends JavaPlugin {
     private PaperCommandManager<CommandSourceStack> commandManager;
     private ListenerManager listenerManager;
     private MetadataManager metadataManager;
+    private StorageManager storageManager;
     private RegionToolManager regionToolManager;
     private SelectionHandler selectionHandler;
     private GuiManager guiManager;
@@ -65,10 +67,17 @@ public class MapperPlugin extends JavaPlugin {
                 .executionCoordinator(ExecutionCoordinator.simpleCoordinator())
                 .buildOnEnable(this);
 
+        // storage
+        String dataDirectory = getConfig().getString("storage.data-directory", "%world%");
+        String regionsFile = getConfig().getString("storage.regions-file", "dataPoints.json");
+        String metadataFile = getConfig().getString("storage.metadata-file", "metadata.json");
+        String exportDirectory = getConfig().getString("storage.export-directory", "%plugin%/exports");
+        this.storageManager = new StorageManager(this, dataDirectory, regionsFile, metadataFile, exportDirectory);
+
         // metadata
         String defaultName = getConfig().getString("metadata.default-map-name", "Unnamed Map");
         List<String> gamemodes = getConfig().getStringList("metadata.available-gamemodes");
-        this.metadataManager = new MetadataManager(defaultName, gamemodes);
+        this.metadataManager = new MetadataManager(defaultName, gamemodes, storageManager);
 
         this.setupCommands();
         log.info("Mapper plugin enabled!");
