@@ -3,12 +3,12 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 plugins {
     id("java")
     id("io.freefair.lombok") version "8.12.2.1"
-    id("com.github.johnrengelman.shadow") version "7.1.2"
+    id("com.gradleup.shadow") version "8.3.6"
     id("maven-publish")
 }
 
 group = "dev.brauw.mapper"
-version = "1.0.14"
+version = "1.0.15"
 
 repositories {
     mavenCentral()
@@ -54,6 +54,12 @@ tasks.withType<ShadowJar> {
     archiveClassifier = ""
     from(sourceSets.main.get().output)
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    // Relocate bundled libraries so they can't collide with copies the host (e.g. StudioEngine)
+    // already provides when Mapper is shaded into another plugin. See loader-constraint errors.
+    relocate("xyz.xenondevs", "dev.brauw.mapper.libs.xenondevs")
+    relocate("com.fasterxml.jackson", "dev.brauw.mapper.libs.jackson")
+    relocate("org.incendo", "dev.brauw.mapper.libs.incendo")
 }
 
 publishing {
