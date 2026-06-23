@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "dev.brauw.mapper"
-version = "1.0.16"
+version = "1.0.17"
 
 repositories {
     mavenCentral()
@@ -48,7 +48,9 @@ sourceSets {
     }
 }
 
-tasks.withType<ShadowJar> {
+// Standalone plugin artifact: a runnable, self-contained plugin. Its legacy plugin.yml makes it a
+// spigot-namespace plugin, so Paper reobf-remaps it at load and the bundled (spigot-mapped) InvUI works.
+tasks.named<ShadowJar>("shadowJar") {
     archiveBaseName = "mapper-plugin"
     archiveVersion = ""
     archiveClassifier = ""
@@ -62,11 +64,43 @@ tasks.withType<ShadowJar> {
     relocate("org.incendo", "dev.brauw.mapper.libs.incendo")
 }
 
+// Embeddable bundle artifact: classes to be shaded into a HOST plugin.
+// InvUI is deliberately NOT bundled here. InvUI's inventory-access carries Spigot-mapped NMS
+// reflection that only works after Paper's reobf remap, and that remap is driven by the *top-level*
+// plugin's mappings namespace - which the host owns, not Mapper. A Mojang-namespace host (e.g.
+// Mineplexlobby) never remaps it, so a bundled copy throws NoClassDefFoundError: EntityHuman.
+// Instead we leave xyz.xenondevs un-relocated and let the host supply a single remapped copy
+// (StudioEngine provides one on the shared classpath via join-classpath).
+val bundleJar = tasks.register<ShadowJar>("bundleJar") {
+    archiveBaseName = "mapper"
+    archiveVersion = ""
+    archiveClassifier = "bundle"
+    from(sourceSets.main.get().output)
+    configurations = listOf(project.configurations.runtimeClasspath.get())
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    dependencies {
+        exclude(dependency("xyz.xenondevs.invui:.*"))
+    }
+    // Relocate mapping-agnostic libs to avoid host collisions, but NOT xyz.xenondevs:
+    // its references must resolve to the host-provided (remapped) InvUI classes.
+    relocate("com.fasterxml.jackson", "dev.brauw.mapper.libs.jackson")
+    relocate("org.incendo", "dev.brauw.mapper.libs.incendo")
+}
+
+tasks.named("build") {
+    dependsOn(bundleJar)
+}
+
 publishing {
     publications {
         create<MavenPublication>("Mapper") {
-            // Use the shadow JAR as the primary artifact
+            // Primary artifact: the self-contained, runnable plugin (bundles InvUI).
             artifact(tasks["shadowJar"])
+
+            // Embeddable bundle (no InvUI) for shading into a host plugin. Consume with the
+            // "bundle" classifier, e.g. com.github.BetterPvP:Mapper:<version>:bundle
+            artifact(bundleJar)
 
             // Exclude the default JAR
             artifact(tasks["jar"]) {
