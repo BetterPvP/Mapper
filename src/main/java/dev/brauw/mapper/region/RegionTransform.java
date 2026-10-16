@@ -95,7 +95,22 @@ public final class RegionTransform {
      * @return the new region
      */
     public static Region duplicate(Region region, Vector delta, float yaw, String name) {
-        final Location pivot = anchor(region);
+        return duplicate(region, delta, yaw, anchor(region), name);
+    }
+
+    /**
+     * Duplicates a region turned about a given pivot, then moved into place. Copying a region along
+     * with the regions inside it turns them all about the outer region's anchor, so they keep their
+     * places relative to each other.
+     *
+     * @param region the region to duplicate
+     * @param delta  how far from the original to place the copy
+     * @param yaw    how far to turn it, in degrees clockwise
+     * @param pivot  the point to turn it about
+     * @param name   the name for the copy
+     * @return the new region
+     */
+    public static Region duplicate(Region region, Vector delta, float yaw, Location pivot, String name) {
         return rebuild(region, UUID.randomUUID(), name,
                 location -> rotateAround(location, pivot, yaw).add(delta));
     }

@@ -7,6 +7,7 @@ import dev.brauw.mapper.region.PerspectiveRegion;
 import dev.brauw.mapper.region.PointRegion;
 import dev.brauw.mapper.region.PolygonRegion;
 import dev.brauw.mapper.region.Region;
+import dev.brauw.mapper.region.RegionNesting;
 import dev.brauw.mapper.region.RegionOptions;
 import dev.brauw.mapper.region.RegionTransform;
 import dev.brauw.mapper.session.EditSession;
@@ -126,6 +127,18 @@ public class SelectionHandler {
      */
     public void setSecondPositionHere(Player actor) {
         setCorner(actor, false, standing(actor));
+    }
+
+    /**
+     * Sets both corners of a cuboid selection at once.
+     *
+     * @param actor  the acting player
+     * @param first  the first corner
+     * @param second the second corner
+     */
+    public void setCorners(Player actor, Location first, Location second) {
+        getSelection(actor).setFirstCorner(first);
+        getSelection(actor).setSecondCorner(second);
     }
 
     private void setCorner(Player actor, boolean first, Location location) {
@@ -379,7 +392,7 @@ public class SelectionHandler {
      * @param region  the region to delete
      */
     public void deleteConfirmed(EditSession session, Player actor, Region region) {
-        final long inside = RegionTargeting.countInside(region, session.getRegions());
+        final long inside = RegionNesting.descendants(region, session.getRegions()).size();
         final PendingDelete pending = pendingDeletes.remove(actor);
         final boolean confirmed = pending != null && pending.getRegionId().equals(region.getId())
                 && System.currentTimeMillis() <= pending.getExpiresAt();
@@ -431,20 +444,23 @@ public class SelectionHandler {
             notifyNoRegion(actor);
             return;
         }
-        copyRegion(actor, region);
+        copyRegion(session, actor, region);
     }
 
     /**
-     * Copies a region that has already been resolved (e.g. from clicking its display entity).
+     * Copies a region that has already been resolved (e.g. from clicking its display entity), along
+     * with the regions inside it.
      *
-     * @param actor  the acting player
-     * @param region the region to copy
+     * @param session the session the region is in
+     * @param actor   the acting player
+     * @param region  the region to copy
      */
-    public void copyRegion(Player actor, Region region) {
-        clipboard.copy(actor, region);
+    public void copyRegion(EditSession session, Player actor, Region region) {
+        final List<Region> group = withNested(session, region);
+        clipboard.copy(actor, group);
         actor.sendMessage(Component.text("Copied ", NamedTextColor.GREEN)
                 .append(RegionFormat.describe(region))
-                .append(Component.text(" - sneak and right-click to paste", NamedTextColor.GRAY)));
+                .append(Component.text(nestedSuffix(group) + " - sneak and right-click to paste", NamedTextColor.GRAY)));
         actor.playSound(actor.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.6f);
     }
 
@@ -457,32 +473,62 @@ public class SelectionHandler {
      * <p>
      * It is also turned to the direction the player is facing rather than the one it was copied
      * with, so a route or an arrangement can be dropped in facing a different way and keep its shape.
+     * The regions copied with it turn about the same point, so they keep their places inside it.
      *
      * @param session the session to paste into
      * @param actor   the acting player
      * @param name    the name for the copy, or {@code null} to keep the original's
      */
     public void handlePaste(EditSession session, Player actor, @Nullable String name) {
-        final Region source = clipboard.get(actor);
-        if (source == null) {
+        final List<Region> group = clipboard.get(actor);
+        if (group.isEmpty()) {
             actor.sendMessage(Component.text("Nothing copied yet - right-click a region first.", NamedTextColor.RED));
             actor.playSound(actor.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
             return;
         }
 
-        final Location anchor = RegionTransform.anchor(source);
-        final Vector delta = actor.getLocation().toVector().subtract(anchor.toVector());
-        final float turn = actor.getLocation().getYaw() - anchor.getYaw();
-        final Region pasted = RegionTransform.duplicate(source, delta, turn,
-                name == null ? source.getName() : name);
-        pasted.setWorld(session.getWorld());
+        final Region source = group.getFirst();
+        final Location pivot = RegionTransform.anchor(source);
+        final Vector delta = actor.getLocation().toVector().subtract(pivot.toVector());
+        final float turn = actor.getLocation().getYaw() - pivot.getYaw();
+        Region pasted = null;
+        for (Region member : group) {
+            final String copyName = member == source && name != null ? name : member.getName();
+            final Region copy = RegionTransform.duplicate(member, delta, turn, pivot, copyName);
+            copy.setWorld(session.getWorld());
+            session.addRegion(copy);
+            if (pasted == null) {
+                pasted = copy;
+            }
+        }
 
-        session.addRegion(pasted);
         actor.sendMessage(Component.text("Pasted ", NamedTextColor.GREEN)
-                .append(RegionFormat.describe(pasted)));
+                .append(RegionFormat.describe(pasted))
+                .append(Component.text(nestedSuffix(group), NamedTextColor.GRAY)));
         actor.playSound(actor.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
         session.broadcastExcept(actor, Component.text(actor.getName() + " pasted ", NamedTextColor.GRAY)
                 .append(RegionFormat.describe(pasted)));
+    }
+
+    /**
+     * @param session the session the region is in
+     * @param region  the region
+     * @return the region first, then every region nested inside it
+     */
+    public static List<Region> withNested(EditSession session, Region region) {
+        final List<Region> group = new ArrayList<>();
+        group.add(region);
+        group.addAll(RegionNesting.descendants(region, session.getRegions()));
+        return group;
+    }
+
+    /** @return " and the N regions inside it", or nothing for a lone region */
+    public static String nestedSuffix(List<Region> group) {
+        final int inside = group.size() - 1;
+        if (inside == 0) {
+            return "";
+        }
+        return inside == 1 ? " and the region inside it" : " and the " + inside + " regions inside it";
     }
 
     /**

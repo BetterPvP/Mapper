@@ -140,8 +140,40 @@ public class EditSession {
      */
     public void showAll(Player player) {
         for (Region region : regions) {
-            strategyFor(region).display(region, player);
+            if (isShownTo(region, player)) {
+                strategyFor(region).display(region, player);
+            }
         }
+    }
+
+    /**
+     * @return whether a player sees the region: everyone does, unless they are a member with a
+     * filter it doesn't match
+     */
+    public boolean isShownTo(Region region, Player player) {
+        final SessionMember member = getMember(player);
+        return member == null || member.shows(region);
+    }
+
+    /** @return the regions this player sees, in session order */
+    public List<Region> visibleTo(Player player) {
+        return regions.stream().filter(region -> isShownTo(region, player)).toList();
+    }
+
+    /**
+     * Shows a member only the regions whose name or tags contain the filter, or every region again.
+     *
+     * @param player the member
+     * @param filter the text to look for, or {@code null} to show everything
+     */
+    public void setFilter(Player player, @Nullable String filter) {
+        final SessionMember member = getMember(player);
+        if (member == null) {
+            return;
+        }
+        hideAll(player);
+        member.setFilter(filter);
+        showAll(player);
     }
 
     /** Hides every region in the session from a player. */
@@ -161,7 +193,9 @@ public class EditSession {
         regions.add(region);
         final RegionDisplayStrategy<Region> strategy = strategyFor(region);
         for (Player viewer : onlinePlayers()) {
-            strategy.display(region, viewer);
+            if (isShownTo(region, viewer)) {
+                strategy.display(region, viewer);
+            }
         }
         touch();
         return true;
@@ -209,7 +243,9 @@ public class EditSession {
         }
         regions.set(index, replacement);
         for (Player viewer : onlinePlayers()) {
-            newStrategy.display(replacement, viewer);
+            if (isShownTo(replacement, viewer)) {
+                newStrategy.display(replacement, viewer);
+            }
         }
         touch();
         return true;

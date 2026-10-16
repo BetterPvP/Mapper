@@ -5,7 +5,6 @@ import dev.brauw.mapper.region.PathRegion;
 import dev.brauw.mapper.region.PointRegion;
 import dev.brauw.mapper.region.PolygonRegion;
 import dev.brauw.mapper.region.Region;
-import dev.brauw.mapper.region.RegionTransform;
 import lombok.Value;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
@@ -79,23 +78,6 @@ public final class RegionTargeting {
         points.forEach(aimed -> ordered.add(aimed.getRegion()));
         ordered.addAll(areas);
         return ordered;
-    }
-
-    /**
-     * Counts the other regions that sit inside an area region, judged by each one's anchor.
-     *
-     * @param area    the cuboid or polygon
-     * @param regions every region in the session
-     * @return how many other regions it holds
-     */
-    public static long countInside(Region area, Collection<Region> regions) {
-        if (!(area instanceof CuboidRegion) && !(area instanceof PolygonRegion)) {
-            return 0;
-        }
-        return regions.stream()
-                .filter(other -> !other.getId().equals(area.getId()))
-                .filter(other -> area.contains(RegionTransform.anchor(other)))
-                .count();
     }
 
     /**

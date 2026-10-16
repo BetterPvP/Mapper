@@ -135,7 +135,7 @@ public class RegionToolListener implements Listener {
             selectionHandler.openTagEditor(player, region);
         } else if (toolManager.isTool(item, ToolType.CLIPBOARD_TOOL)) {
             event.setCancelled(true);
-            selectionHandler.copyRegion(player, region);
+            selectionHandler.copyRegion(session, player, region);
         }
     }
 

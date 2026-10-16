@@ -1,15 +1,18 @@
 package dev.brauw.mapper.command;
 
 import dev.brauw.mapper.Mapper;
+import dev.brauw.mapper.region.CuboidRegion;
 import dev.brauw.mapper.region.Region;
 import dev.brauw.mapper.region.RegionTransform;
 import dev.brauw.mapper.selection.SelectionHandler;
+import dev.brauw.mapper.selection.WorldEditBridge;
 import dev.brauw.mapper.session.EditSession;
 import dev.brauw.mapper.util.RegionFormat;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import org.bukkit.Axis;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -18,6 +21,8 @@ import org.incendo.cloud.annotations.Command;
 import org.incendo.cloud.annotations.Default;
 import org.incendo.cloud.annotations.Permission;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 /**
  * A command for every region tool, plus the transforms that have no tool.
@@ -63,6 +68,53 @@ public class RegionEditCommand {
         final Player player = editor(source);
         if (player == null) return;
         selection().createCuboidRegion(support.editingHere(player), player, orPrompt(name));
+    }
+
+    /**
+     * Makes a cuboid from the player's WorldEdit selection, for builders who already have the area
+     * selected.
+     */
+    @Command("fromselection [name]")
+    public void fromSelection(CommandSourceStack source, @Nullable @Argument("name") String name) {
+        final Player player = editor(source);
+        if (player == null) return;
+        if (!worldEditInstalled()) {
+            support.deny(player, "WorldEdit is not installed.");
+            return;
+        }
+        final List<Location> corners = WorldEditBridge.selection(player);
+        if (corners == null) {
+            support.deny(player, "Make a cuboid WorldEdit selection in this world first.");
+            return;
+        }
+        selection().setCorners(player, corners.get(0), corners.get(1));
+        selection().createCuboidRegion(support.editingHere(player), player, orPrompt(name));
+    }
+
+    /**
+     * Sets the player's WorldEdit selection to a cuboid's blocks, so it can be adjusted with
+     * {@code //expand} and friends and turned back into a cuboid with {@code fromselection}.
+     */
+    @Command("toselection <region>")
+    public void toSelection(CommandSourceStack source,
+                            @Argument(value = "region", suggestions = "regionNames") String region) {
+        final Player player = editor(source);
+        if (player == null) return;
+        if (!worldEditInstalled()) {
+            support.deny(player, "WorldEdit is not installed.");
+            return;
+        }
+        final EditSession session = support.editingHere(player);
+        final List<Region> cuboids = support.matching(session, region).stream()
+                .filter(CuboidRegion.class::isInstance)
+                .toList();
+        prompt.choose(player, cuboids, "select", target -> {
+            final CuboidRegion cuboid = (CuboidRegion) target;
+            WorldEditBridge.select(player, cuboid.getMin(), cuboid.getMax());
+            support.confirm(player, Component.text("Selected ", NamedTextColor.GREEN)
+                    .append(RegionFormat.describe(cuboid))
+                    .append(Component.text(" in WorldEdit", NamedTextColor.GREEN)));
+        });
     }
 
     @Command("point [name]")
@@ -165,11 +217,16 @@ public class RegionEditCommand {
             final Vector delta = player.getLocation().toVector()
                     .subtract(RegionTransform.anchor(target).toVector());
             final String copyName = orPrompt(name) == null ? target.getName() : name;
+            final List<Region> group = SelectionHandler.withNested(session, target);
             final Region duplicate = RegionTransform.duplicate(target, delta, copyName);
-
             session.addRegion(duplicate);
+            for (Region nested : group.subList(1, group.size())) {
+                session.addRegion(RegionTransform.duplicate(nested, delta, nested.getName()));
+            }
+
             support.confirm(player, Component.text("Copied to ", NamedTextColor.GREEN)
-                    .append(RegionFormat.describe(duplicate)));
+                    .append(RegionFormat.describe(duplicate))
+                    .append(Component.text(SelectionHandler.nestedSuffix(group), NamedTextColor.GRAY)));
             session.broadcastExcept(player, Component.text(player.getName() + " copied ", NamedTextColor.GRAY)
                     .append(RegionFormat.describe(duplicate)));
         });
@@ -200,13 +257,18 @@ public class RegionEditCommand {
         final EditSession session = support.editingHere(player);
 
         prompt.choose(player, support.matching(session, region), "move", target -> {
+            final List<Region> group = SelectionHandler.withNested(session, target);
             final Region moved = RegionTransform.translate(target, new Vector(x, y, z));
             if (!session.replaceRegion(target, moved)) {
                 support.deny(player, "That region is already gone.");
                 return;
             }
+            for (Region nested : group.subList(1, group.size())) {
+                session.replaceRegion(nested, RegionTransform.translate(nested, new Vector(x, y, z)));
+            }
             support.confirm(player, Component.text("Moved to ", NamedTextColor.GREEN)
-                    .append(RegionFormat.describe(moved)));
+                    .append(RegionFormat.describe(moved))
+                    .append(Component.text(SelectionHandler.nestedSuffix(group), NamedTextColor.GRAY)));
             session.broadcastExcept(player, Component.text(player.getName() + " moved ", NamedTextColor.GRAY)
                     .append(RegionFormat.describe(moved)));
         });
@@ -235,16 +297,27 @@ public class RegionEditCommand {
         };
 
         prompt.choose(player, support.matching(session, region), "mirror", target -> {
+            final List<Region> group = SelectionHandler.withNested(session, target);
             final Region mirrored = RegionTransform.mirror(target, axis, plane);
             if (!session.replaceRegion(target, mirrored)) {
                 support.deny(player, "That region is already gone.");
                 return;
             }
+            for (Region nested : group.subList(1, group.size())) {
+                session.replaceRegion(nested, RegionTransform.mirror(nested, axis, plane));
+            }
             support.confirm(player, Component.text("Mirrored across " + axis + " to ", NamedTextColor.GREEN)
-                    .append(RegionFormat.describe(mirrored)));
+                    .append(RegionFormat.describe(mirrored))
+                    .append(Component.text(SelectionHandler.nestedSuffix(group), NamedTextColor.GRAY)));
             session.broadcastExcept(player, Component.text(player.getName() + " mirrored ", NamedTextColor.GRAY)
                     .append(RegionFormat.describe(mirrored)));
         });
+    }
+
+    /** @return whether WorldEdit or FastAsyncWorldEdit is installed and enabled */
+    public static boolean worldEditInstalled() {
+        return Bukkit.getPluginManager().isPluginEnabled("WorldEdit")
+                || Bukkit.getPluginManager().isPluginEnabled("FastAsyncWorldEdit");
     }
 
     /**

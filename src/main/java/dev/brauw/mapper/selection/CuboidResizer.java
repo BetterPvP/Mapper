@@ -179,7 +179,7 @@ public class CuboidResizer {
         final Location eye = player.getEyeLocation();
         CuboidRegion nearest = null;
         BoxAim nearestAim = null;
-        for (Region region : session.getRegions()) {
+        for (Region region : session.visibleTo(player)) {
             if (!(region instanceof CuboidRegion cuboid)) {
                 continue;
             }

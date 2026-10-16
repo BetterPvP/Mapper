@@ -80,6 +80,7 @@ public class MapperCommand {
         line(sender, "/mapper validate", "Report problems without saving.");
         line(sender, "/mapper export [strategy]", "Export to a timestamped file. Defaults to JSON.");
         line(sender, "/mapper list [filter]", "Browse the regions in the session.");
+        line(sender, "/mapper filter [text]", "Show only regions whose name or tags contain the text.");
         line(sender, "/mapper goto <region>", "Teleport to a region.");
         line(sender, "/mapper paste [name]", "Paste what the Region Clipboard copied.");
         line(sender, "/mapper metadata", "Change this world's metadata.");
@@ -343,12 +344,9 @@ public class MapperCommand {
         final EditSession session = support.session(player);
         if (session == null) return;
 
-        final String needle = filter == null ? "" : filter.toLowerCase(Locale.ROOT);
+        final String needle = filter == null ? "" : filter;
         final List<Region> shown = session.getRegions().stream()
-                .filter(region -> needle.isEmpty()
-                        || region.getName().toLowerCase(Locale.ROOT).contains(needle)
-                        || region.getOptions().getTags().stream()
-                        .anyMatch(tag -> tag.toLowerCase(Locale.ROOT).contains(needle)))
+                .filter(region -> needle.isEmpty() || SessionMember.matches(region, needle))
                 .toList();
 
         if (shown.isEmpty()) {
@@ -360,6 +358,29 @@ public class MapperCommand {
                 ? "Regions (" + shown.size() + ")"
                 : "Regions matching '" + filter + "' (" + shown.size() + ")";
         mapper.getGuiManager().openRegionBrowser(session, player, mapper.getSelectionHandler(), shown, title);
+    }
+
+    /**
+     * Shows the player only the regions whose name or tags contain the text, so one kind of
+     * datapoint can be worked on without the rest in the way. Without text, shows everything again.
+     * The tools only act on regions the player can see.
+     */
+    @Command("filter [text]")
+    public void filter(CommandSourceStack source, @Nullable @Argument("text") String text) {
+        final Player player = support.player(source, "filter regions");
+        if (player == null) return;
+        final EditSession session = support.session(player);
+        if (session == null) return;
+
+        final String filter = text == null || text.isBlank() ? null : text;
+        session.setFilter(player, filter);
+        if (filter == null) {
+            support.confirm(player, Component.text("Showing every region.", NamedTextColor.GREEN));
+            return;
+        }
+        final long shown = session.visibleTo(player).size();
+        support.confirm(player, Component.text("Showing " + shown + " of " + session.getRegions().size()
+                + " regions matching '" + filter + "'. /mapper filter to show all.", NamedTextColor.GREEN));
     }
 
     @Command("goto <region>")

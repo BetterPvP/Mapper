@@ -172,7 +172,7 @@ public class RegionTargetTracker {
         final RayTraceResult result = player.getWorld().rayTraceBlocks(eye, eye.getDirection(), reach,
                 FluidCollisionMode.NEVER, true);
         final Location hit = result == null ? null : result.getHitPosition().toLocation(player.getWorld());
-        return RegionTargeting.candidates(session.getRegions(), eye.toVector(), eye.getDirection(), reach, hit);
+        return RegionTargeting.candidates(session.visibleTo(player), eye.toVector(), eye.getDirection(), reach, hit);
     }
 
     private static Component describe(ToolType tool, Region target, Aim aim) {

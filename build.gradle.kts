@@ -13,16 +13,20 @@ plugins {
 }
 
 group = "dev.brauw.mapper"
-version = "1.0.22"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://repo.xenondevs.xyz/releases")
+    maven("https://maven.enginehub.org/repo/")
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+    // Optional: the selection bridge only loads when WorldEdit or FastAsyncWorldEdit is installed.
+    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.15") { isTransitive = false }
+    compileOnly("com.sk89q.worldedit:worldedit-core:7.3.15") { isTransitive = false }
     // api, not implementation: these types appear in Mapper's own public signatures, so a consumer
     // compiling against Mapper needs them on its compile classpath too.
     api("com.fasterxml.jackson.core:jackson-databind:2.16.1")

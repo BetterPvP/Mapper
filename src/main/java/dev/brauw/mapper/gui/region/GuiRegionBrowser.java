@@ -5,6 +5,7 @@ import dev.brauw.mapper.gui.button.BackItem;
 import dev.brauw.mapper.gui.button.ForwardItem;
 import dev.brauw.mapper.region.PerspectiveRegion;
 import dev.brauw.mapper.region.Region;
+import dev.brauw.mapper.region.RegionNesting;
 import dev.brauw.mapper.region.RegionTransform;
 import dev.brauw.mapper.selection.SelectionHandler;
 import dev.brauw.mapper.session.EditSession;
@@ -74,8 +75,8 @@ public class GuiRegionBrowser extends AbstractPagedGui<Item> {
 
     private void rebuild() {
         final List<Item> items = new ArrayList<>(shown.size());
-        for (Region region : shown) {
-            items.add(new RegionButton(region));
+        for (RegionNesting.Nested nested : RegionNesting.tree(shown, session.getRegions())) {
+            items.add(new RegionButton(nested));
         }
         setContent(items);
     }
@@ -106,9 +107,11 @@ public class GuiRegionBrowser extends AbstractPagedGui<Item> {
     private class RegionButton extends AbstractItem {
 
         private final Region region;
+        private final RegionNesting.Nested nested;
 
-        RegionButton(Region region) {
-            this.region = region;
+        RegionButton(RegionNesting.Nested nested) {
+            this.region = nested.getRegion();
+            this.nested = nested;
         }
 
         @Override
@@ -116,12 +119,17 @@ public class GuiRegionBrowser extends AbstractPagedGui<Item> {
             final boolean editable = session.canEdit(viewer);
             final ItemBuilder builder = new ItemBuilder(region.getOptions().getColor().getMaterial())
                     .setDisplayName(new AdventureComponentWrapper(
-                            Component.text("#" + region.getName(), NamedTextColor.YELLOW)))
+                            Component.text(indent() + "#" + region.getName(), NamedTextColor.YELLOW)))
                     .addLoreLines(
                             new AdventureComponentWrapper(Component.text(
                                     region.getType().name().toLowerCase(), NamedTextColor.DARK_GRAY)),
                             new AdventureComponentWrapper(Component.text(
                                     RegionFormat.coordinates(region), NamedTextColor.GRAY)));
+
+            if (nested.getParent() != null) {
+                builder.addLoreLines(new AdventureComponentWrapper(Component.text(
+                        "Inside #" + nested.getParent().getName(), NamedTextColor.GRAY)));
+            }
 
             final Component tags = RegionFormat.tags(region);
             if (!Component.empty().equals(tags)) {
@@ -155,6 +163,11 @@ public class GuiRegionBrowser extends AbstractPagedGui<Item> {
 
             player.closeInventory();
             teleport(player);
+        }
+
+        /** Regions inside another are listed right after it, stepped in by their depth. */
+        private String indent() {
+            return nested.getDepth() == 0 ? "" : "  ".repeat(nested.getDepth() - 1) + "↳ ";
         }
 
         private boolean requireEdit(Player player) {

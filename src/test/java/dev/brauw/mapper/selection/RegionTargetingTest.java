@@ -90,14 +90,4 @@ class RegionTargetingTest {
 
         assertEquals(List.of(inner, outer), candidates);
     }
-
-    @Test
-    void aCuboidCountsTheRegionsInsideIt() {
-        final CuboidRegion mine = new CuboidRegion("mine", at(-10, 60, -10), at(10, 70, 10));
-        final PointRegion inside = new PointRegion("spawn", at(0, 65, 0));
-        final PointRegion outside = new PointRegion("dock", at(50, 65, 0));
-
-        assertEquals(1, RegionTargeting.countInside(mine, List.of(mine, inside, outside)));
-        assertEquals(0, RegionTargeting.countInside(inside, List.of(mine, inside, outside)));
-    }
 }

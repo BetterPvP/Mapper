@@ -2,9 +2,9 @@ package dev.brauw.mapper.selection;
 
 import dev.brauw.mapper.region.Region;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,23 +20,25 @@ import java.util.UUID;
  */
 public class RegionClipboard {
 
-    private final Map<UUID, Region> copied = new HashMap<>();
+    private final Map<UUID, List<Region>> copied = new HashMap<>();
 
     /**
-     * Stores a region as this player's clipboard contents, replacing whatever was there.
+     * Stores a region and the regions inside it as this player's clipboard contents, replacing
+     * whatever was there.
      *
      * @param player the copying player
-     * @param region the region to remember
+     * @param group  the copied region first, then the regions inside it
      */
-    public void copy(Player player, Region region) {
-        copied.put(player.getUniqueId(), region);
+    public void copy(Player player, List<Region> group) {
+        copied.put(player.getUniqueId(), List.copyOf(group));
     }
 
     /**
-     * @return what this player last copied, or {@code null} if they have copied nothing
+     * @return what this player last copied, the copied region first, or an empty list if they have
+     * copied nothing
      */
-    public @Nullable Region get(Player player) {
-        return copied.get(player.getUniqueId());
+    public List<Region> get(Player player) {
+        return copied.getOrDefault(player.getUniqueId(), List.of());
     }
 
     public boolean isEmpty(Player player) {

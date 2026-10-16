@@ -98,6 +98,28 @@ Cuboids are drawn as the outline of the blocks they cover, so the regions inside
 Only you see the cuboid change until you apply it. A face can't be dragged through the opposite one,
 so a cuboid always keeps at least one block on each axis.
 
+### Regions Inside Regions
+
+A region that sits wholly inside a cuboid or polygon belongs to it, and to the smallest one if
+several hold it. Nothing extra is saved: moving a region out of a cuboid takes it out.
+
+- Copying, pasting, moving (`offset`) and mirroring a region take the regions inside it along,
+  keeping their places relative to it.
+- Resizing and deleting act on the region alone. Deleting one that holds others asks first.
+- `/mapper list` shows each region's contents right after it, stepped in.
+
+### Showing Only Some Regions
+
+`/mapper filter <text>` shows you only the regions whose name or tags contain the text, and the
+tools only act on those. Other members keep their own view. `/mapper filter` shows everything
+again.
+
+### WorldEdit Selections
+
+With WorldEdit or FastAsyncWorldEdit installed, `/mapper fromselection` turns your cuboid selection
+into a cuboid region, and `/mapper toselection <region>` loads a cuboid into your selection so you
+can `//expand` or `//contract` it and turn it back.
+
 ### Creating a Polygon Region
 
 1. Left-click with the Breeze Rod to set the first corner of a polygon part
@@ -150,6 +172,7 @@ and saved. Every reported problem is clickable and teleports you to the region i
 | Command                  | Description                                        |
 |--------------------------|----------------------------------------------------|
 | `/mapper list [filter]`  | Browse the session's regions, filtered by name/tag |
+| `/mapper filter [text]`  | Show only regions whose name or tags match; no text shows all |
 | `/mapper goto <region>`  | Teleport to a region                               |
 | `/mapper tags <region>`  | List the tags available for a region name          |
 | `/mapper pick <n>`       | Answer a "which one did you mean" prompt           |
@@ -158,7 +181,7 @@ and saved. Every reported problem is clickable and teleports you to the region i
 
 | Command                              | Description                                        |
 |--------------------------------------|----------------------------------------------------|
-| `/mapper pos1` / `/mapper pos2`      | Set the cuboid corners you are looking at          |
+| `/mapper pos1` / `/mapper pos2`      | Set a cuboid corner on the block you look at, or where you stand |
 | `/mapper cuboid [name]`              | Create a cuboid from those corners                 |
 | `/mapper point [name]`               | Create a point where you stand                     |
 | `/mapper perspective [name]`         | Create a point that also records your facing       |
@@ -171,6 +194,8 @@ and saved. Every reported problem is clickable and teleports you to the region i
 | `/mapper copy <region> [name]`       | Duplicate a region at your feet                    |
 | `/mapper offset <region> <x> <y> <z>`| Move a region by an exact delta                    |
 | `/mapper mirror <region> <axis>`     | Mirror a region across the plane you stand on      |
+| `/mapper fromselection [name]`       | Create a cuboid from your WorldEdit selection      |
+| `/mapper toselection <region>`       | Load a cuboid into your WorldEdit selection        |
 
 Region names are not unique on purpose - a world holds many `npc_resident` points. Any command that
 names an ambiguous region lists every match with its coordinates and tags rather than guessing, and
