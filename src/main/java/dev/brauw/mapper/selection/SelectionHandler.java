@@ -13,6 +13,7 @@ import dev.brauw.mapper.session.EditSession;
 import dev.brauw.mapper.tag.TagRegistry;
 import dev.brauw.mapper.util.RegionFormat;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.FluidCollisionMode;
@@ -25,11 +26,10 @@ import org.bukkit.util.Vector;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.function.BiFunction;
 
@@ -46,10 +46,13 @@ import java.util.function.BiFunction;
 public class SelectionHandler {
 
     private static final double MIN_DISTANCE_TO_INTERACT = 0.4;
+    private static final long CONFIRM_MILLIS = 5000;
 
     private final GuiManager guiManager;
     private final TagRegistry tagRegistry;
     private final RegionClipboard clipboard;
+    private final RegionTargetTracker targets;
+    private final Map<Player, PendingDelete> pendingDeletes = new WeakHashMap<>();
     private final Map<Player, SelectionCorners> selections = new WeakHashMap<>();
     private final Map<Player, List<CuboidRegion>> polygonSelections = new WeakHashMap<>();
     private final Map<Player, List<Location>> pathSelections = new WeakHashMap<>();
@@ -85,39 +88,66 @@ public class SelectionHandler {
     }
 
     /**
-     * Sets the first corner of a cuboid selection at what the player is looking at.
+     * Sets the first corner of a cuboid selection at the block the player is looking at, or at the
+     * block they stand in when they look at none.
      *
      * @param actor the acting player
      */
     public void setFirstPosition(Player actor) {
-        final Location location = getTargetBlock(actor);
-        if (location == null) {
-            actor.sendMessage(Component.text("Look at a block to set a position.", NamedTextColor.RED));
-            return;
-        }
-
-        getSelection(actor).setFirstCorner(location);
-        actor.sendMessage(Component.text("First position set ", NamedTextColor.GREEN)
-                .append(RegionFormat.location(location)));
-        actor.playSound(actor.getLocation(), Sound.BLOCK_STONE_BUTTON_CLICK_ON, 1.0f, 1.0f);
+        setCorner(actor, true, targetOrStanding(actor));
     }
 
     /**
-     * Sets the second corner of a cuboid selection at what the player is looking at.
+     * Sets the second corner of a cuboid selection at the block the player is looking at, or at the
+     * block they stand in when they look at none.
      *
      * @param actor the acting player
      */
     public void setSecondPosition(Player actor) {
-        final Location location = getTargetBlock(actor);
-        if (location == null) {
-            actor.sendMessage(Component.text("Look at a block to set a position.", NamedTextColor.RED));
-            return;
-        }
+        setCorner(actor, false, targetOrStanding(actor));
+    }
 
-        getSelection(actor).setSecondCorner(location);
-        actor.sendMessage(Component.text("Second position set ", NamedTextColor.YELLOW)
+    /**
+     * Sets the first corner of a cuboid selection at the block the player stands in, whatever they
+     * are looking at. This is what a click into the air does, so a corner can sit in mid-air without
+     * a block placed there to aim at.
+     *
+     * @param actor the acting player
+     */
+    public void setFirstPositionHere(Player actor) {
+        setCorner(actor, true, standing(actor));
+    }
+
+    /**
+     * Sets the second corner of a cuboid selection at the block the player stands in, whatever they
+     * are looking at.
+     *
+     * @param actor the acting player
+     */
+    public void setSecondPositionHere(Player actor) {
+        setCorner(actor, false, standing(actor));
+    }
+
+    private void setCorner(Player actor, boolean first, Location location) {
+        final SelectionCorners selection = getSelection(actor);
+        if (first) {
+            selection.setFirstCorner(location);
+        } else {
+            selection.setSecondCorner(location);
+        }
+        actor.sendMessage(Component.text(first ? "First position set " : "Second position set ",
+                        first ? NamedTextColor.GREEN : NamedTextColor.YELLOW)
                 .append(RegionFormat.location(location)));
-        actor.playSound(actor.getLocation(), Sound.BLOCK_STONE_BUTTON_CLICK_ON, 1.0f, 1.5f);
+        actor.playSound(actor.getLocation(), Sound.BLOCK_STONE_BUTTON_CLICK_ON, 1.0f, first ? 1.0f : 1.5f);
+    }
+
+    private static Location targetOrStanding(Player player) {
+        final Location target = getTargetBlock(player);
+        return target != null ? target : standing(player);
+    }
+
+    private static Location standing(Player player) {
+        return player.getLocation().toBlockLocation();
     }
 
     /**
@@ -310,90 +340,58 @@ public class SelectionHandler {
     }
 
     /**
-     * Deletes the region the player is looking at.
+     * Deletes the region the player's crosshair is on: the one {@link RegionTargetTracker} outlines.
+     * A region that holds others is only deleted on a second click within a few seconds.
      *
-     * @param session the session to delete from
+     * @param session the session to search
      * @param actor   the acting player
      */
     public void handleRegionDeletion(EditSession session, Player actor) {
-        final Location location = getTargetPoint(actor);
-        if (location == null) return;
-
-        findRegionAt(session, location)
-                .ifPresentOrElse(region -> deleteRegion(session, actor, region), () -> notifyNoRegion(actor));
+        final Region region = targets.target(session, actor);
+        if (region == null) {
+            notifyNoRegion(actor);
+            return;
+        }
+        deleteConfirmed(session, actor, region);
     }
 
     /**
-     * Opens the tag editor for the region the player is looking at.
+     * Opens the tag editor for the region the player's crosshair is on.
      *
      * @param session the session to search
      * @param actor   the acting player
      */
     public void handleTagEditor(EditSession session, Player actor) {
-        final Location location = getTargetPoint(actor);
-        if (location == null) return;
-
-        findRegionAt(session, location)
-                .ifPresentOrElse(region -> openTagEditor(actor, region), () -> notifyNoRegion(actor));
+        final Region region = targets.target(session, actor);
+        if (region == null) {
+            notifyNoRegion(actor);
+            return;
+        }
+        openTagEditor(actor, region);
     }
 
     /**
-     * Finds the region the player is targeting at the given location, resolving overlaps in favour of
-     * the most specific (smallest) region. This is what lets a player select a label region nested
-     * inside a larger cuboid instead of always grabbing the enclosing cuboid.
+     * Deletes a region, asking for a second click first when other regions sit inside it. Those are
+     * usually the datapoints a builder meant to delete instead, and they are not deleted with it.
      *
-     * @param session  the edit session whose regions to search
-     * @param location the targeted location
-     * @return the most specific region containing the location, if any
+     * @param session the owning edit session
+     * @param actor   the acting player
+     * @param region  the region to delete
      */
-    public Optional<Region> findRegionAt(EditSession session, Location location) {
-        return session.getRegions().stream()
-                .filter(region -> region.contains(location)
-                        || (region instanceof PointRegion point && point.getLocation().distance(location) < 0.2))
-                .min(Comparator.comparingDouble(this::regionSpecificity));
-    }
-
-    /**
-     * Computes a specificity score for a region: lower means "more specific" and should win when
-     * regions overlap. A point is the most specific thing a player can target; a large cuboid the
-     * least.
-     *
-     * <ul>
-     *   <li>{@link PointRegion} / {@link PerspectiveRegion} → 0 (always wins)</li>
-     *   <li>{@link CuboidRegion} → its block volume (inclusive bounds)</li>
-     *   <li>{@link PolygonRegion} → the volume of its smallest child, since the player is standing
-     *       inside exactly one child cuboid</li>
-     * </ul>
-     *
-     * @param region the region to score
-     * @return the specificity score; smaller wins
-     */
-    private double regionSpecificity(Region region) {
-        return switch (region) {
-            case CuboidRegion cuboid -> cuboidVolume(cuboid);
-            case PolygonRegion polygon -> polygon.getChildren().stream()
-                    .mapToDouble(this::cuboidVolume)
-                    .min()
-                    .orElse(Double.MAX_VALUE);
-            default -> 0; // PointRegion / PerspectiveRegion: point-like, always most specific
-        };
-    }
-
-    /**
-     * Computes the inclusive block volume of a cuboid. Bounds are inclusive (see
-     * {@link CuboidRegion#contains}), so each span gets a +1 and a single block scores 1 rather
-     * than 0.
-     *
-     * @param cuboid the cuboid to measure
-     * @return the block volume
-     */
-    private double cuboidVolume(CuboidRegion cuboid) {
-        final Location min = cuboid.getMin();
-        final Location max = cuboid.getMax();
-        final double width = max.getBlockX() - min.getBlockX() + 1;
-        final double height = max.getBlockY() - min.getBlockY() + 1;
-        final double depth = max.getBlockZ() - min.getBlockZ() + 1;
-        return width * height * depth;
+    public void deleteConfirmed(EditSession session, Player actor, Region region) {
+        final long inside = RegionTargeting.countInside(region, session.getRegions());
+        final PendingDelete pending = pendingDeletes.remove(actor);
+        final boolean confirmed = pending != null && pending.getRegionId().equals(region.getId())
+                && System.currentTimeMillis() <= pending.getExpiresAt();
+        if (inside > 0 && !confirmed) {
+            pendingDeletes.put(actor, new PendingDelete(region.getId(), System.currentTimeMillis() + CONFIRM_MILLIS));
+            actor.sendMessage(RegionFormat.describe(region)
+                    .append(Component.text(" holds " + inside + (inside == 1 ? " region" : " regions")
+                            + ". Click again within " + CONFIRM_MILLIS / 1000 + " seconds to delete it.", NamedTextColor.GOLD)));
+            actor.playSound(actor.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 1.0f);
+            return;
+        }
+        deleteRegion(session, actor, region);
     }
 
     /**
@@ -422,17 +420,18 @@ public class SelectionHandler {
     }
 
     /**
-     * Copies the region the player is looking at into their clipboard.
+     * Copies the region the player's crosshair is on into their clipboard.
      *
      * @param session the session to search
      * @param actor   the acting player
      */
     public void handleCopy(EditSession session, Player actor) {
-        final Location location = getTargetPoint(actor);
-        if (location == null) return;
-
-        findRegionAt(session, location)
-                .ifPresentOrElse(region -> copyRegion(actor, region), () -> notifyNoRegion(actor));
+        final Region region = targets.target(session, actor);
+        if (region == null) {
+            notifyNoRegion(actor);
+            return;
+        }
+        copyRegion(actor, region);
     }
 
     /**
@@ -514,10 +513,6 @@ public class SelectionHandler {
                 : result.getHitPosition().toLocation(result.getHitBlock().getWorld());
     }
 
-    private static @Nullable Location getTargetPoint(Player player) {
-        final RayTraceResult result = rayTrace(player);
-        return result == null ? null : result.getHitPosition().toLocation(player.getWorld());
-    }
 
     private static @Nullable RayTraceResult rayTrace(Player player) {
         return player.getWorld().rayTraceBlocks(
@@ -539,5 +534,11 @@ public class SelectionHandler {
 
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
         return true;
+    }
+
+    @Value
+    private static class PendingDelete {
+        UUID regionId;
+        long expiresAt;
     }
 }

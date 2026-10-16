@@ -68,6 +68,21 @@ Mapper allows server administrators and world editors to define various types of
 3. Shift + Right-click to complete the region
 4. Enter a name and select a color for your region
 
+Clicking a block puts the corner on that block. Clicking into the air puts it on the block you are
+standing in, so a corner can sit in mid-air without a block to aim at. The Breeze Rod's corners work
+the same way.
+
+### Picking a Region
+
+While you hold the Shears, the Name Tag or the Book, the region under your crosshair is outlined for
+you and named in your action bar. That is the region a click acts on.
+
+- Points and path waypoints are picked from your whole line of sight, nearest first, so a datapoint
+  inside a cuboid is picked before the cuboid.
+- When several regions are under your crosshair, sneak and scroll to step through them.
+- Deleting a cuboid or polygon that holds other regions asks for a second click within 5 seconds.
+  The regions inside are not deleted with it.
+
 ### Creating a Polygon Region
 
 1. Left-click with the Breeze Rod to set the first corner of a polygon part

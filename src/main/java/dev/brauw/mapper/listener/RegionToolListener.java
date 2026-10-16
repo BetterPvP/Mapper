@@ -14,9 +14,9 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
@@ -121,13 +121,31 @@ public class RegionToolListener implements Listener {
         // The same tools that act on a raytraced region also act on its display entity.
         if (toolManager.isTool(item, ToolType.REGION_DELETION_TOOL)) {
             event.setCancelled(true);
-            selectionHandler.deleteRegion(session, player, region);
+            selectionHandler.deleteConfirmed(session, player, region);
         } else if (toolManager.isTool(item, ToolType.TAG_TOOL)) {
             event.setCancelled(true);
             selectionHandler.openTagEditor(player, region);
         } else if (toolManager.isTool(item, ToolType.CLIPBOARD_TOOL)) {
             event.setCancelled(true);
             selectionHandler.copyRegion(player, region);
+        }
+    }
+
+    /**
+     * Sneak + scroll while holding the deletion, tag or clipboard tool steps through the regions
+     * under the crosshair instead of changing the held slot.
+     */
+    @EventHandler
+    public void onScroll(PlayerItemHeldEvent event) {
+        final Player player = event.getPlayer();
+        if (!player.isSneaking()
+                || mapper.getTargetTracker().heldTool(player.getInventory().getItem(event.getPreviousSlot())) == null) {
+            return;
+        }
+
+        final int forward = Math.floorMod(event.getNewSlot() - event.getPreviousSlot(), 9);
+        if (mapper.getTargetTracker().cycle(player, forward <= 4 ? 1 : -1)) {
+            event.setCancelled(true);
         }
     }
 
@@ -174,13 +192,24 @@ public class RegionToolListener implements Listener {
                 .orElse(null);
     }
 
+    /**
+     * Left-click sets the first corner and right-click the second, at the clicked block, or at the
+     * block the player stands in when the click hits air. Sneak + right-click into the air finishes
+     * the region, so a sneaking right-click never sets a corner there.
+     */
     private void handleCuboidWand(PlayerInteractEvent event, EditSession session, Player player) {
-        if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
-            selectionHandler.setFirstPosition(player);
-        } else if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            selectionHandler.setSecondPosition(player);
-        } else if (event.getAction() == Action.RIGHT_CLICK_AIR && player.isSneaking()) {
-            selectionHandler.createCuboidRegion(session, player, null);
+        switch (event.getAction()) {
+            case LEFT_CLICK_BLOCK -> selectionHandler.setFirstPosition(player);
+            case RIGHT_CLICK_BLOCK -> selectionHandler.setSecondPosition(player);
+            case LEFT_CLICK_AIR -> selectionHandler.setFirstPositionHere(player);
+            case RIGHT_CLICK_AIR -> {
+                if (player.isSneaking()) {
+                    selectionHandler.createCuboidRegion(session, player, null);
+                } else {
+                    selectionHandler.setSecondPositionHere(player);
+                }
+            }
+            default -> { }
         }
     }
 
@@ -210,10 +239,12 @@ public class RegionToolListener implements Listener {
             return;
         }
 
-        if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
-            selectionHandler.setFirstPosition(player);
-        } else if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            selectionHandler.setSecondPosition(player);
+        switch (event.getAction()) {
+            case LEFT_CLICK_BLOCK -> selectionHandler.setFirstPosition(player);
+            case RIGHT_CLICK_BLOCK -> selectionHandler.setSecondPosition(player);
+            case LEFT_CLICK_AIR -> selectionHandler.setFirstPositionHere(player);
+            case RIGHT_CLICK_AIR -> selectionHandler.setSecondPositionHere(player);
+            default -> { }
         }
     }
 }
