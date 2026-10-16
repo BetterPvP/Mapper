@@ -27,7 +27,8 @@ public class ToolRegistry {
         REGION_DELETION_TOOL(4, Material.SHEARS, "Region Deletion Tool"),
         TAG_TOOL(5, Material.NAME_TAG, "Tag Tool"),
         PATH_WAND(6, Material.LEAD, "Path Region Wand"),
-        CLIPBOARD_TOOL(7, Material.BOOK, "Region Clipboard");
+        CLIPBOARD_TOOL(7, Material.BOOK, "Region Clipboard"),
+        RESIZE_TOOL(8, Material.ECHO_SHARD, "Region Resize Tool");
 
         @Getter final int slot;
         @Getter final Material material;

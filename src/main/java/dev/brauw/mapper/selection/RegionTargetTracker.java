@@ -6,7 +6,9 @@ import dev.brauw.mapper.region.PathRegion;
 import dev.brauw.mapper.region.PointRegion;
 import dev.brauw.mapper.region.PolygonRegion;
 import dev.brauw.mapper.region.Region;
+import dev.brauw.mapper.geometry.Box;
 import dev.brauw.mapper.session.EditSession;
+import dev.brauw.mapper.session.display.BoxOutline;
 import dev.brauw.mapper.session.display.RegionDisplayStrategy;
 import dev.brauw.mapper.tool.RegionToolManager;
 import dev.brauw.mapper.tool.ToolRegistry.ToolType;
@@ -25,7 +27,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Transformation;
-import org.bukkit.util.Vector;
 import org.jetbrains.annotations.Nullable;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -49,7 +50,7 @@ public class RegionTargetTracker {
 
     private static final double REACH_BONUS = 0.4;
     private static final float POINT_SIZE = 0.35f;
-    private static final float OUTSET = 0.03f;
+    private static final float HIGHLIGHT_EDGE = 0.1f;
     private static final int ACTION_BAR_REFRESH_TICKS = 20;
 
     private final Mapper mapper;
@@ -220,7 +221,7 @@ public class RegionTargetTracker {
         private boolean highlight(Player player, @Nullable Region target) {
             // Compared by identity: an edited region is replaced by a new object with the same id,
             // and its outline has to follow the new shape.
-            if (target == outlined && outline.stream().allMatch(BlockDisplay::isValid)) {
+            if (target == outlined && !BoxOutline.isStale(outline)) {
                 return false;
             }
             clearHighlight();
@@ -228,23 +229,8 @@ public class RegionTargetTracker {
             if (target == null) {
                 return true;
             }
-            for (Box box : boxes(target)) {
-                if (!RegionDisplayStrategy.canSpawnAt(box.origin)) {
-                    continue;
-                }
-                final BlockDisplay display = box.origin.getWorld().spawn(box.origin, BlockDisplay.class, spawned -> {
-                    spawned.setVisibleByDefault(false);
-                    spawned.setPersistent(false);
-                    spawned.setBlock(Material.WHITE_STAINED_GLASS.createBlockData());
-                    spawned.setGlowing(true);
-                    spawned.setGlowColorOverride(Color.WHITE);
-                    spawned.setBrightness(new Display.Brightness(15, 15));
-                    spawned.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(),
-                            box.size, new AxisAngle4f()));
-                });
-                player.showEntity(mapper.getPlugin(), display);
-                outline.add(display);
-            }
+            outline.addAll(spawnOutline(target));
+            outline.forEach(display -> player.showEntity(mapper.getPlugin(), display));
             return true;
         }
 
@@ -267,40 +253,42 @@ public class RegionTargetTracker {
         return true;
     }
 
-    private static List<Box> boxes(Region region) {
-        return switch (region) {
-            case PointRegion point -> List.of(Box.around(point.getLocation()));
-            case PathRegion path -> path.getPoints().stream().map(Box::around).toList();
-            case CuboidRegion cuboid -> List.of(Box.of(cuboid));
-            case PolygonRegion polygon -> polygon.getChildren().stream().map(Box::of).toList();
-            default -> List.of();
-        };
+    /**
+     * Outlines a region in white: cuboids by their edges, a little thicker than their own outline,
+     * and points and waypoints by a small cube each.
+     */
+    private static List<BlockDisplay> spawnOutline(Region region) {
+        final List<BlockDisplay> spawned = new ArrayList<>();
+        switch (region) {
+            case PointRegion point -> spawnCube(point.getLocation(), spawned);
+            case PathRegion path -> path.getPoints().forEach(waypoint -> spawnCube(waypoint, spawned));
+            case CuboidRegion cuboid -> spawnEdges(cuboid, spawned);
+            case PolygonRegion polygon -> polygon.getChildren().forEach(child -> spawnEdges(child, spawned));
+            default -> { }
+        }
+        return spawned;
     }
 
-    /** A display-entity box: where its corner sits and how large it is. */
-    private static final class Box {
-
-        private final Location origin;
-        private final Vector3f size;
-
-        private Box(Location origin, Vector3f size) {
-            this.origin = origin;
-            this.size = size;
+    private static void spawnEdges(CuboidRegion cuboid, List<BlockDisplay> into) {
+        if (RegionDisplayStrategy.canSpawnAt(cuboid.getMin())) {
+            into.addAll(BoxOutline.spawn(Box.of(cuboid), Color.WHITE, HIGHLIGHT_EDGE));
         }
+    }
 
-        private static Box around(Location point) {
-            final double half = POINT_SIZE / 2;
-            return new Box(point.clone().subtract(half, half, half), new Vector3f(POINT_SIZE));
+    private static void spawnCube(Location point, List<BlockDisplay> into) {
+        if (!RegionDisplayStrategy.canSpawnAt(point)) {
+            return;
         }
-
-        /** Covers the cuboid's whole blocks, since its bounds are inclusive, and stands slightly proud of them. */
-        private static Box of(CuboidRegion cuboid) {
-            final Location min = cuboid.getMin().toBlockLocation();
-            final Location max = cuboid.getMax().toBlockLocation().add(1, 1, 1);
-            final Vector span = max.toVector().subtract(min.toVector());
-            return new Box(min.subtract(OUTSET, OUTSET, OUTSET),
-                    new Vector3f((float) span.getX() + 2 * OUTSET, (float) span.getY() + 2 * OUTSET,
-                            (float) span.getZ() + 2 * OUTSET));
-        }
+        final float half = POINT_SIZE / 2;
+        into.add(point.getWorld().spawn(point.clone().subtract(half, half, half), BlockDisplay.class, spawned -> {
+            spawned.setVisibleByDefault(false);
+            spawned.setPersistent(false);
+            spawned.setBlock(Material.WHITE_STAINED_GLASS.createBlockData());
+            spawned.setGlowing(true);
+            spawned.setGlowColorOverride(Color.WHITE);
+            spawned.setBrightness(new Display.Brightness(15, 15));
+            spawned.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(),
+                    new Vector3f(POINT_SIZE), new AxisAngle4f()));
+        }));
     }
 }

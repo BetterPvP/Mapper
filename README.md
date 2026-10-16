@@ -60,6 +60,7 @@ Mapper allows server administrators and world editors to define various types of
     - Lead: Path Region Wand
     - Book: Region Clipboard - right-click a region to copy it, sneak +
       right-click to paste it where you stand
+    - Echo Shard: Region Resize Tool - grab a cuboid's face and drag it
 
 ### Creating a Cuboid Region
 
@@ -82,6 +83,20 @@ you and named in your action bar. That is the region a click acts on.
 - When several regions are under your crosshair, sneak and scroll to step through them.
 - Deleting a cuboid or polygon that holds other regions asks for a second click within 5 seconds.
   The regions inside are not deleted with it.
+
+Cuboids are drawn as the outline of the blocks they cover, so the regions inside them stay visible.
+
+### Resizing a Cuboid
+
+1. Hold the Echo Shard and look at a cuboid. It is outlined in white and the face you look at lights
+   up yellow. From inside a cuboid you get the face in front of you.
+2. Right-click to grab the face. It turns green and follows your look along its axis, snapping to
+   whole blocks. Your action bar shows the new size.
+3. Scroll to move it one block at a time instead.
+4. Right-click again to apply the new size, or left-click to cancel.
+
+Only you see the cuboid change until you apply it. A face can't be dragged through the opposite one,
+so a cuboid always keeps at least one block on each axis.
 
 ### Creating a Polygon Region
 

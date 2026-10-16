@@ -72,6 +72,14 @@ public class RegionToolListener implements Listener {
             event.setCancelled(true);
             handleClipboard(session, player);
         }
+        else if (toolManager.isTool(item, ToolType.RESIZE_TOOL)) {
+            event.setCancelled(true);
+            if (event.getAction().isRightClick()) {
+                mapper.getCuboidResizer().use(session, player);
+            } else if (event.getAction().isLeftClick()) {
+                mapper.getCuboidResizer().cancel(player);
+            }
+        }
     }
 
     /**
@@ -132,18 +140,25 @@ public class RegionToolListener implements Listener {
     }
 
     /**
+     * Scrolling while a resize face is grabbed nudges it a block instead of changing the held slot.
      * Sneak + scroll while holding the deletion, tag or clipboard tool steps through the regions
-     * under the crosshair instead of changing the held slot.
+     * under the crosshair instead.
      */
     @EventHandler
     public void onScroll(PlayerItemHeldEvent event) {
         final Player player = event.getPlayer();
+        final int forward = Math.floorMod(event.getNewSlot() - event.getPreviousSlot(), 9);
+        if (mapper.getCuboidResizer().isGrabbing(player)) {
+            event.setCancelled(true);
+            mapper.getCuboidResizer().nudge(player, forward <= 4);
+            return;
+        }
+
         if (!player.isSneaking()
                 || mapper.getTargetTracker().heldTool(player.getInventory().getItem(event.getPreviousSlot())) == null) {
             return;
         }
 
-        final int forward = Math.floorMod(event.getNewSlot() - event.getPreviousSlot(), 9);
         if (mapper.getTargetTracker().cycle(player, forward <= 4 ? 1 : -1)) {
             event.setCancelled(true);
         }

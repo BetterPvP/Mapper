@@ -10,6 +10,7 @@ import dev.brauw.mapper.gui.GuiManager;
 import dev.brauw.mapper.listener.ListenerManager;
 import dev.brauw.mapper.logger.BukkitLoggerFactory;
 import dev.brauw.mapper.metadata.MetadataManager;
+import dev.brauw.mapper.selection.CuboidResizer;
 import dev.brauw.mapper.selection.RegionClipboard;
 import dev.brauw.mapper.selection.RegionTargetTracker;
 import dev.brauw.mapper.selection.SelectionHandler;
@@ -54,6 +55,7 @@ public final class Mapper {
     private final GuiManager guiManager;
     private final RegionClipboard regionClipboard;
     private final RegionTargetTracker targetTracker;
+    private final CuboidResizer cuboidResizer;
     private final SelectionHandler selectionHandler;
     private final ListenerManager listenerManager;
     private final SessionManager sessionManager;
@@ -73,6 +75,7 @@ public final class Mapper {
         this.guiManager = new GuiManager(this);
         this.regionClipboard = new RegionClipboard();
         this.targetTracker = new RegionTargetTracker(this, regionToolManager);
+        this.cuboidResizer = new CuboidResizer(this, regionToolManager);
         this.selectionHandler = new SelectionHandler(guiManager, tagRegistry, regionClipboard, targetTracker);
         this.listenerManager = new ListenerManager(this, regionToolManager, selectionHandler);
         this.listenerManager.registerListeners();
@@ -96,6 +99,7 @@ public final class Mapper {
 
         setupCommands();
         taskScheduler.scheduleRecurringTask(targetTracker::tick, 1, 2);
+        taskScheduler.scheduleRecurringTask(cuboidResizer::tick, 1, 2);
     }
 
     private void setupCommands() {
@@ -113,6 +117,7 @@ public final class Mapper {
     /** Stops background work. Called when the host plugin disables. */
     public void shutdown() {
         targetTracker.shutdown();
+        cuboidResizer.shutdown();
         sessionManager.shutdown();
     }
 

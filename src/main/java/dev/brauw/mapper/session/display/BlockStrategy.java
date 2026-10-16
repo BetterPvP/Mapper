@@ -2,22 +2,19 @@ package dev.brauw.mapper.session.display;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import dev.brauw.mapper.geometry.Box;
 import dev.brauw.mapper.region.CuboidRegion;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.util.Transformation;
 import org.jetbrains.annotations.NotNull;
-import org.joml.AxisAngle4f;
-import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,11 +23,11 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Renders a glowing block at the cuboid's location.
+ * Renders a cuboid as the outline of the blocks it covers, with its name floating above it.
  */
 public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
 
-    private final Map<CuboidRegion, BlockDisplay> displays = new HashMap<>();
+    private final Map<CuboidRegion, List<BlockDisplay>> displays = new HashMap<>();
     private final Map<CuboidRegion, TextDisplay> labels = new HashMap<>();
     // A set, not a list: showing a region to someone already viewing it (a member refreshing on
     // reconnect) must not leave a second entry that keeps the entity alive after they hide it.
@@ -41,43 +38,14 @@ public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
         this.plugin = plugin;
     }
 
-    private BlockDisplay getDisplay(CuboidRegion region) {
-        final BlockDisplay existing = displays.get(region);
-        if (existing != null && !existing.isValid()) {
-            displays.remove(region);
+    private List<BlockDisplay> getOutline(CuboidRegion region) {
+        final List<BlockDisplay> existing = displays.get(region);
+        if (existing != null && BoxOutline.isStale(existing)) {
+            despawnOutline(region);
         }
 
-        final Location min = region.getMin();
-        final Location max = region.getMax();
-        final Location center = min.clone().add(
-                (max.getX() - min.getX()) / 2,
-                (max.getY() - min.getY()) / 2,
-                (max.getZ() - min.getZ()) / 2
-        );
-
-        final float widthX = (float) Math.abs(max.getX() - min.getX());
-        final float widthY = (float) Math.abs(max.getY() - min.getY());
-        final float widthZ = (float) Math.abs(max.getZ() - min.getZ());
-
-        return RegionDisplayStrategy.spawnIfAbsent(displays, region, key -> {
-            return center.getWorld().spawn(center, BlockDisplay.class, spawned -> {
-                spawned.setGlowing(true);
-                spawned.setVisibleByDefault(false);
-                spawned.setGlowColorOverride(region.getOptions().getColor().getBukkitColor());
-
-                // Block data
-                spawned.setBlock(Material.TINTED_GLASS.createBlockData());
-                spawned.setTransformation(new Transformation(
-                        new Vector3f(widthX / 2, widthY / 2, widthZ / 2).mul(-1),
-                        new AxisAngle4f(),
-                        new Vector3f(widthX, widthY, widthZ),
-                        new AxisAngle4f()
-                ));
-
-                // Important, because we don't want the display to be saved in case the server shuts down
-                spawned.setPersistent(false);
-            });
-        });
+        return RegionDisplayStrategy.spawnIfAbsent(displays, region, key -> BoxOutline.spawn(
+                Box.of(region), region.getOptions().getColor().getBukkitColor(), BoxOutline.EDGE));
     }
 
     private TextDisplay getLabel(CuboidRegion region) {
@@ -86,13 +54,12 @@ public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
             labels.remove(region);
         }
 
-        final Location min = region.getMin();
-        final Location max = region.getMax();
+        final Box box = Box.of(region);
         final Location labelLocation = new Location(
-                min.getWorld(),
-                (min.getX() + max.getX()) / 2,
-                max.getY() + 0.5,
-                (min.getZ() + max.getZ()) / 2
+                box.getWorld(),
+                (box.getMin().getX() + box.getMax().getX()) / 2,
+                box.getMax().getY() + 0.5,
+                (box.getMin().getZ() + box.getMax().getZ()) / 2
         );
         final Color color = region.getOptions().getColor().getBukkitColor();
 
@@ -106,11 +73,7 @@ public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
 
     @Override
     public void display(@NotNull CuboidRegion region, @NotNull Player player) {
-        // Get or create the block display for this region
-        final BlockDisplay blockDisplay = getDisplay(region);
-
-        // Show the display and label to the player
-        player.showEntity(plugin, blockDisplay);
+        getOutline(region).forEach(edge -> player.showEntity(plugin, edge));
         player.showEntity(plugin, getLabel(region));
         viewers.put(region, player.getUniqueId());
     }
@@ -118,10 +81,10 @@ public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
     @Override
     public void update(@NotNull CuboidRegion region) {
         despawn(region);
-        final BlockDisplay display = getDisplay(region);
+        final List<BlockDisplay> outline = getOutline(region);
         final TextDisplay label = getLabel(region);
         for (Player viewer : viewersOf(region)) {
-            viewer.showEntity(plugin, display);
+            outline.forEach(edge -> viewer.showEntity(plugin, edge));
             viewer.showEntity(plugin, label);
         }
     }
@@ -133,11 +96,11 @@ public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
             return;
         }
 
-        final BlockDisplay entity = displays.get(region);
+        final List<BlockDisplay> outline = displays.get(region);
         final TextDisplay label = labels.get(region);
         // Missing counts as stale, not as "nothing to do". A viewer with no entity is exactly the
         // state a region ends up in when its chunk unloaded and something dropped the entry.
-        if (entity == null || !entity.isValid() || label == null || !label.isValid()) {
+        if (outline == null || BoxOutline.isStale(outline) || label == null || !label.isValid()) {
             if (RegionDisplayStrategy.canSpawnAt(region.getMin())) {
                 update(region);
             }
@@ -150,7 +113,7 @@ public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
         // that stays invisible until the player leaves and rejoins the session. Re-asserting is
         // cheap and idempotent, so the sweep repairs that within a second instead of never.
         for (Player viewer : currentViewers) {
-            viewer.showEntity(plugin, entity);
+            outline.forEach(edge -> viewer.showEntity(plugin, edge));
             viewer.showEntity(plugin, label);
         }
     }
@@ -161,9 +124,9 @@ public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
             return;
         }
 
-        final BlockDisplay entity = displays.get(region);
-        if (entity != null) {
-            player.hideEntity(plugin, entity);
+        final List<BlockDisplay> outline = displays.get(region);
+        if (outline != null) {
+            outline.forEach(edge -> player.hideEntity(plugin, edge));
         }
         final TextDisplay label = labels.get(region);
         if (label != null) {
@@ -193,13 +156,17 @@ public class BlockStrategy implements RegionDisplayStrategy<CuboidRegion> {
      * with nothing left holding a reference to it.
      */
     private void despawn(CuboidRegion region) {
-        final BlockDisplay display = displays.remove(region);
-        if (display != null) {
-            display.remove();
-        }
+        despawnOutline(region);
         final TextDisplay label = labels.remove(region);
         if (label != null) {
             label.remove();
+        }
+    }
+
+    private void despawnOutline(CuboidRegion region) {
+        final List<BlockDisplay> outline = displays.remove(region);
+        if (outline != null) {
+            outline.forEach(BlockDisplay::remove);
         }
     }
 }
