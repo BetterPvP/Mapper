@@ -14,10 +14,11 @@ import dev.brauw.mapper.selection.SelectionHandler;
 import dev.brauw.mapper.session.EditSession;
 import dev.brauw.mapper.tag.Tag;
 import dev.brauw.mapper.tag.TagRegistry;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import xyz.xenondevs.invui.gui.structure.Structure;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
+import xyz.xenondevs.invui.gui.Structure;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.window.AnvilWindow;
 import xyz.xenondevs.invui.window.Window;
 
@@ -32,7 +33,7 @@ public class GuiManager {
 
     public GuiManager(Mapper mapper) {
         this.mapper = mapper;
-        Structure.addGlobalIngredient('#', new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).setDisplayName(""));
+        Structure.addGlobalIngredient('#', new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).setName(Component.empty()));
     }
 
     public void openRegionCreateGui(Player player, BiConsumer<String, RegionOptions> regionCreator, Runnable onClose) {
@@ -41,15 +42,15 @@ public class GuiManager {
 
         final GuiSetName setNameGui = new GuiSetName(name, () -> builder.build().getColor().getMaterial(), () -> regionCreator.accept(name.get(), builder.build()));
         final GuiColorSelect colorGui = new GuiColorSelect(builder, setNameGui::update);
-        AnvilWindow.split()
-                .setUpperGui(setNameGui)
-                .setLowerGui(colorGui)
+        AnvilWindow.builder()
+                .setUpperGui(setNameGui::gui)
+                .setLowerGui(colorGui.gui())
                 .addRenameHandler(updated -> {
                     name.set(updated);
                     setNameGui.update();
                 })
                 .setTitle("Create a new region")
-                .addCloseHandler(onClose)
+                .addCloseHandler(reason -> onClose.run())
                 .open(player);
     }
 
@@ -64,16 +65,16 @@ public class GuiManager {
      */
     public void openRegionBrowser(EditSession session, Player player, SelectionHandler selectionHandler,
                                   List<Region> shown, String title) {
-        Window.single()
+        Window.builder()
                 .setTitle(title)
-                .setGui(new GuiRegionBrowser(session, player, this, selectionHandler, shown))
+                .setUpperGui(new GuiRegionBrowser(session, player, this, selectionHandler, shown).gui())
                 .open(player);
     }
 
     public void openTagEditor(Player player, Region region, TagRegistry tagRegistry) {
-        Window.single()
+        Window.builder()
                 .setTitle("Tag Editor")
-                .setGui(new GuiTagEditor(region, tagRegistry, this))
+                .setUpperGui(new GuiTagEditor(region, tagRegistry, this).gui())
                 .open(player);
     }
 
@@ -97,14 +98,14 @@ public class GuiManager {
         GuiSet<String> input = new GuiSet<>(value, () -> Material.NAME_TAG,
                 () -> onConfirm.accept(tag.completeInput(value.get())),
                 typed -> tag.matches(tag.completeInput(typed)));
-        AnvilWindow.single()
-                .setGui(input)
+        AnvilWindow.builder()
+                .setUpperGui(input::gui)
                 .addRenameHandler(updated -> {
                     value.set(updated);
                     input.update();
                 })
                 .setTitle("Enter " + tag.name() + " " + tag.inputHint())
-                .addCloseHandler(() -> mapper.getTaskScheduler().scheduleTask(
+                .addCloseHandler(reason -> mapper.getTaskScheduler().scheduleTask(
                         () -> openTagEditor(player, region, tagRegistry), 1L))
                 .open(player);
     }
@@ -126,22 +127,22 @@ public class GuiManager {
         AtomicReference<String> value = new AtomicReference<>("");
         GuiSet<String> input = new GuiSet<>(value, () -> Material.NAME_TAG,
                 () -> onConfirm.accept(value.get()), TagRegistry::isWellFormedValue);
-        AnvilWindow.single()
-                .setGui(input)
+        AnvilWindow.builder()
+                .setUpperGui(input::gui)
                 .addRenameHandler(updated -> {
                     value.set(updated);
                     input.update();
                 })
                 .setTitle("Enter tag or tag:value")
-                .addCloseHandler(() -> mapper.getTaskScheduler().scheduleTask(
+                .addCloseHandler(reason -> mapper.getTaskScheduler().scheduleTask(
                         () -> openTagEditor(player, region, tagRegistry), 1L))
                 .open(player);
     }
 
     public void openMetadataEditor(Player player, MapMetadata mapMetadata) {
-        Window.single()
+        Window.builder()
                 .setTitle("Map Metadata")
-                .setGui(new GuiMetadata(mapper.getTaskScheduler(), this, mapper.getMetadataManager(), player, mapMetadata))
+                .setUpperGui(new GuiMetadata(mapper.getTaskScheduler(), this, mapper.getMetadataManager(), mapMetadata).getGui())
                 .open(player);
     }
 }

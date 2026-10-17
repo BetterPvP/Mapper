@@ -1,6 +1,6 @@
 # Mapper
 
-A powerful Bukkit/Paper plugin for creating, visualizing, and managing regions in your Minecraft world.
+A powerful Paper plugin for creating, visualizing, and managing regions in your Minecraft world. Mapper 2.x runs on Paper 26.3 with Java 25. Mapper 1.1.x runs on Paper 1.21.11.
 
 ## Disclaimer
 

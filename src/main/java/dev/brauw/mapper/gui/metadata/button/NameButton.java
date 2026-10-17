@@ -11,12 +11,11 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.jetbrains.annotations.NotNull;
-import xyz.xenondevs.inventoryaccess.component.AdventureComponentWrapper;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
 import xyz.xenondevs.invui.window.AnvilWindow;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -29,15 +28,15 @@ public class NameButton extends AbstractItem {
     private final MapMetadata metadata;
 
     @Override
-    public ItemProvider getItemProvider() {
+    public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
         return new ItemBuilder(Material.NAME_TAG)
-                .setDisplayName(new AdventureComponentWrapper(Component.text("Map Name: ", NamedTextColor.GOLD)
-                        .append(Component.text(metadata.getName(), NamedTextColor.WHITE))))
-                .addLoreLines(new AdventureComponentWrapper(Component.text("Click to change", NamedTextColor.GRAY)));
+                .setName(Component.text("Map Name: ", NamedTextColor.GOLD)
+                        .append(Component.text(metadata.getName(), NamedTextColor.WHITE)))
+                .addLoreLines(Component.text("Click to change", NamedTextColor.GRAY));
     }
 
     @Override
-    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent inventoryClickEvent) {
+    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
         player.closeInventory();
         taskScheduler.scheduleTask(() -> openRenameGui(player), 1L);
     }
@@ -48,16 +47,16 @@ public class NameButton extends AbstractItem {
             metadata.setName(name.get());
             taskScheduler.scheduleTask(() -> guiManager.openMetadataEditor(player, metadata), 1L);
         });
-        AnvilWindow.single()
-                .setGui(gui)
+        AnvilWindow.builder()
+                .setUpperGui(gui::gui)
                 .addRenameHandler(updated -> {
                     name.set(updated);
                     gui.update();
                 })
-                .addCloseHandler(() -> {
+                .addCloseHandler(reason -> {
                     taskScheduler.scheduleTask(() -> guiManager.openMetadataEditor(player, metadata), 1L);
                 })
-                .setTitle("Create a new region")
+                .setTitle("Rename the map")
                 .open(player);
     }
 }

@@ -14,12 +14,11 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.jetbrains.annotations.NotNull;
-import xyz.xenondevs.inventoryaccess.component.AdventureComponentWrapper;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
 import xyz.xenondevs.invui.window.AnvilWindow;
 
 import java.util.Set;
@@ -34,14 +33,14 @@ public class AddAuthorButton extends AbstractItem {
     private final MapMetadata mapMetadata;
 
     @Override
-    public ItemProvider getItemProvider() {
+    public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
         return new ItemBuilder(Material.PLAYER_HEAD)
-                .setDisplayName(new AdventureComponentWrapper(Component.text("Add Author", NamedTextColor.GREEN)))
-                .addLoreLines(new AdventureComponentWrapper(Component.text("Click to add a player", NamedTextColor.GRAY)));
+                .setName(Component.text("Add Author", NamedTextColor.GREEN))
+                .addLoreLines(Component.text("Click to add a player", NamedTextColor.GRAY));
     }
 
     @Override
-    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent inventoryClickEvent) {
+    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
         player.closeInventory();
         taskScheduler.scheduleTask(() -> openAddAuthorWindow(player), 1L);
     }
@@ -71,14 +70,14 @@ public class AddAuthorButton extends AbstractItem {
             }
         });
 
-        AnvilWindow.single()
-                .setGui(gui)
+        AnvilWindow.builder()
+                .setUpperGui(gui::gui)
                 .setTitle("Enter Player UUID/Name")
                 .addRenameHandler(input -> {
                     name.set(input);
                     gui.update();
                 })
-                .addCloseHandler(() -> {
+                .addCloseHandler(reason -> {
                     taskScheduler.scheduleTask(() -> guiManager.openMetadataEditor(player, mapMetadata), 1L);
                 })
                 .open(player);

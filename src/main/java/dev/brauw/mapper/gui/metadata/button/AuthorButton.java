@@ -1,6 +1,5 @@
 package dev.brauw.mapper.gui.metadata.button;
 
-import dev.brauw.mapper.gui.metadata.GuiMetadata;
 import dev.brauw.mapper.metadata.MapMetadata;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -10,30 +9,30 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.jetbrains.annotations.NotNull;
-import xyz.xenondevs.inventoryaccess.component.AdventureComponentWrapper;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.controlitem.ControlItem;
 
 import java.util.Objects;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class AuthorButton extends ControlItem<GuiMetadata> {
+public class AuthorButton extends AbstractItem {
 
     private final MapMetadata mapMetadata;
     private final UUID authorId;
+    private final Runnable onRemove;
 
     @Override
-    public ItemProvider getItemProvider(GuiMetadata gui) {
+    public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
         ItemBuilder builder = new ItemBuilder(Material.PLAYER_HEAD)
-                .setDisplayName(new AdventureComponentWrapper(Component.text("Author: ", NamedTextColor.GOLD)
-                        .append(Component.text(getPlayerName(), NamedTextColor.WHITE))))
-                .addLoreLines(new AdventureComponentWrapper(Component.text("Click to remove", NamedTextColor.RED)));
+                .setName(Component.text("Author: ", NamedTextColor.GOLD)
+                        .append(Component.text(getPlayerName(), NamedTextColor.WHITE)))
+                .addLoreLines(Component.text("Click to remove", NamedTextColor.RED));
 
         try {
             ItemStack skull = builder.get();
@@ -55,10 +54,9 @@ public class AuthorButton extends ControlItem<GuiMetadata> {
     }
 
     @Override
-    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent event) {
+    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
         mapMetadata.getAuthors().remove(authorId);
         player.playSound(player, Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.8f);
-        getGui().updateAuthorList();
-        notifyWindows();
+        onRemove.run();
     }
 }

@@ -12,53 +12,49 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.jetbrains.annotations.NotNull;
-import xyz.xenondevs.inventoryaccess.component.AdventureComponentWrapper;
-import xyz.xenondevs.invui.gui.AbstractPagedGui;
-import xyz.xenondevs.invui.gui.SlotElement;
-import xyz.xenondevs.invui.gui.structure.Markers;
-import xyz.xenondevs.invui.gui.structure.Structure;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.gui.Markers;
+import xyz.xenondevs.invui.gui.PagedGui;
+import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.Item;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
-import xyz.xenondevs.invui.item.impl.SimpleItem;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-
-public class GuiTagEditor extends AbstractPagedGui<Item> {
+public class GuiTagEditor {
 
     private final Region region;
     private final TagRegistry tagRegistry;
     private final GuiManager guiManager;
     private final List<Tag> availableTags;
+    private final PagedGui<Item> gui;
 
     public GuiTagEditor(Region region, TagRegistry tagRegistry, GuiManager guiManager) {
-        super(9, 4, false, 10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25);
         this.region = region;
         this.tagRegistry = tagRegistry;
         this.guiManager = guiManager;
         this.availableTags = tagRegistry.getTags(region.getName());
-
-        Structure structure = new Structure(
-                "# # # # c # # # #",
-                "# t t t t t t t #",
-                "# t t t t t t t #",
-                "# # # < # > # # #"
-        );
-
-        structure.addIngredient('t', Markers.CONTENT_LIST_SLOT_HORIZONTAL);
-        structure.addIngredient('c', new CustomTagButton());
-        structure.addIngredient('<', new BackItem());
-        structure.addIngredient('>', new ForwardItem());
-
-        applyStructure(structure);
+        this.gui = PagedGui.itemsBuilder()
+                .setStructure(
+                        "# # # # c # # # #",
+                        "# t t t t t t t #",
+                        "# t t t t t t t #",
+                        "# # # < # > # # #")
+                .addIngredient('t', Markers.CONTENT_LIST_SLOT_HORIZONTAL)
+                .addIngredient('c', new CustomTagButton())
+                .addIngredient('<', new BackItem())
+                .addIngredient('>', new ForwardItem())
+                .build();
         updateTagList();
+    }
+
+    public PagedGui<Item> gui() {
+        return gui;
     }
 
     private void updateTagList() {
@@ -76,48 +72,24 @@ public class GuiTagEditor extends AbstractPagedGui<Item> {
                 .<Item>map(value -> new CustomTagValueButton(value, activeTags))
                 .forEach(items::add);
 
-        setContent(items);
-    }
-
-    @Override
-    public void bake() {
-        int contentSize = getContentListSlots().length;
-        List<List<SlotElement>> pages = new ArrayList<>();
-        List<SlotElement> page = new ArrayList<>(contentSize);
-
-        for (Item item : content) {
-            page.add(new SlotElement.ItemSlotElement(item));
-            if (page.size() >= contentSize) {
-                pages.add(page);
-                page = new ArrayList<>(contentSize);
-            }
-        }
-
-        if (!page.isEmpty()) {
-            pages.add(page);
-        }
-
-        this.pages = pages;
-        update();
+        gui.setContent(items);
     }
 
     /** Opens the free-form tag input, for tags the registry does not define. */
     private class CustomTagButton extends AbstractItem {
 
         @Override
-        public ItemProvider getItemProvider() {
+        public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
             return new ItemBuilder(Material.WRITABLE_BOOK)
-                    .setDisplayName(new AdventureComponentWrapper(
-                            Component.text("Custom tag", NamedTextColor.YELLOW)))
+                    .setName(Component.text("Custom tag", NamedTextColor.YELLOW))
                     .addLoreLines(
-                            new AdventureComponentWrapper(Component.text("tag or tag:value", NamedTextColor.GOLD)),
-                            new AdventureComponentWrapper(Component.text(
-                                    "Write a tag that isn't in the list.", NamedTextColor.GRAY)),
-                            new AdventureComponentWrapper(Component.text("Click to write", NamedTextColor.GREEN)));
+                            Component.text("tag or tag:value", NamedTextColor.GOLD),
+                            Component.text("Write a tag that isn't in the list.", NamedTextColor.GRAY),
+                            Component.text("Click to write", NamedTextColor.GREEN));
         }
 
         @Override
-        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent event) {
+        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
             guiManager.openCustomTagInput(player, region, tagRegistry, region.getOptions().getTags()::add);
         }
     }
@@ -134,19 +106,17 @@ public class GuiTagEditor extends AbstractPagedGui<Item> {
         }
 
         @Override
-        public ItemProvider getItemProvider() {
+        public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
             return new ItemBuilder(Material.LIME_CONCRETE)
-                    .setDisplayName(new AdventureComponentWrapper(
-                            Component.text("#" + value, NamedTextColor.YELLOW)))
+                    .setName(Component.text("#" + value, NamedTextColor.YELLOW))
                     .addLoreLines(
-                            new AdventureComponentWrapper(Component.text("Custom tag", NamedTextColor.GOLD)),
-                            new AdventureComponentWrapper(Component.text(
-                                    "Not defined by any plugin.", NamedTextColor.GRAY)),
-                            new AdventureComponentWrapper(Component.text("Click to remove", NamedTextColor.RED)));
+                            Component.text("Custom tag", NamedTextColor.GOLD),
+                            Component.text("Not defined by any plugin.", NamedTextColor.GRAY),
+                            Component.text("Click to remove", NamedTextColor.RED));
         }
 
         @Override
-        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent event) {
+        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
             activeTags.remove(value);
             // Rebuild rather than notify: this button must disappear entirely, not just re-render.
             updateTagList();
@@ -174,29 +144,27 @@ public class GuiTagEditor extends AbstractPagedGui<Item> {
         }
 
         @Override
-        public ItemProvider getItemProvider() {
+        public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
             Optional<String> applied = appliedValue();
             boolean active = applied.isPresent();
             Material material = active ? Material.GREEN_CONCRETE : Material.RED_CONCRETE;
 
             // When active show the concrete value (e.g. #level:47), otherwise the tag's name.
             Component title = Component.text("#" + applied.orElseGet(tag::name), NamedTextColor.YELLOW);
-
-            ItemBuilder builder = new ItemBuilder(material)
-                    .setDisplayName(new AdventureComponentWrapper(title))
-                    .addLoreLines(
-                            new AdventureComponentWrapper(Component.text(tag.usage(), NamedTextColor.GOLD)),
-                            new AdventureComponentWrapper(Component.text(tag.description(), NamedTextColor.GRAY))
-                    );
-
             Component hint = active
                     ? Component.text("Click to remove", NamedTextColor.RED)
                     : Component.text(tag.requiresInput() ? "Click to set a value" : "Click to add", NamedTextColor.GREEN);
-            return builder.addLoreLines(new AdventureComponentWrapper(hint));
+
+            return new ItemBuilder(material)
+                    .setName(title)
+                    .addLoreLines(
+                            Component.text(tag.usage(), NamedTextColor.GOLD),
+                            Component.text(tag.description(), NamedTextColor.GRAY),
+                            hint);
         }
 
         @Override
-        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent event) {
+        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
             // Remove any value of this tag's type if one is already applied.
             if (appliedValue().isPresent()) {
                 activeTags.removeIf(tag::matches);

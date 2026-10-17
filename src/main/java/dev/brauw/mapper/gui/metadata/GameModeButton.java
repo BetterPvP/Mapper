@@ -1,43 +1,53 @@
 package dev.brauw.mapper.gui.metadata;
 
+import dev.brauw.mapper.metadata.MapMetadata;
 import dev.brauw.mapper.metadata.MetadataManager;
-import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import xyz.xenondevs.inventoryaccess.component.AdventureComponentWrapper;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.AbstractItemBuilder;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.CycleItem;
-import xyz.xenondevs.invui.item.impl.controlitem.ControlItem;
 
-@RequiredArgsConstructor
-public class GameModeButton implements ItemProvider {
+import java.util.List;
 
-    private final String gameMode;
+/** Lists the available game modes with the map's one marked. A click moves to the next. */
+public class GameModeButton extends AbstractItem {
+
+    private final MapMetadata metadata;
     private final MetadataManager metadataManager;
 
-    @Override
-    public @NotNull ItemStack get(@Nullable String lang) {
-        final ItemBuilder builder = new ItemBuilder(Material.PAPER);
-        builder.setDisplayName(AdventureComponentWrapper.EMPTY);
-        for (String availableGameMode : metadataManager.getGameModes()) {
-            if (availableGameMode.equals(gameMode)) {
-                builder.addLoreLines(new AdventureComponentWrapper(Component.text("▶ " + gameMode, NamedTextColor.GREEN)));
-                continue;
-            }
+    public GameModeButton(MapMetadata metadata, MetadataManager metadataManager) {
+        this.metadata = metadata;
+        this.metadataManager = metadataManager;
+    }
 
-            builder.addLoreLines(new AdventureComponentWrapper(Component.text(availableGameMode, NamedTextColor.GRAY)));
+    @Override
+    public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
+        final ItemBuilder builder = new ItemBuilder(Material.PAPER).setName(Component.empty());
+        for (String gameMode : metadataManager.getGameModes()) {
+            builder.addLoreLines(gameMode.equals(metadata.getGameMode())
+                    ? Component.text("▶ " + gameMode, NamedTextColor.GREEN)
+                    : Component.text(gameMode, NamedTextColor.GRAY));
         }
-        builder.addLoreLines(AdventureComponentWrapper.EMPTY);
-        return builder.get();
+        return builder.addLoreLines(Component.empty());
+    }
+
+    @Override
+    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
+        final List<String> gameModes = metadataManager.getGameModes();
+        if (gameModes.isEmpty()) {
+            return;
+        }
+        final int step = clickType.isRightClick() ? -1 : 1;
+        final int next = Math.floorMod(gameModes.indexOf(metadata.getGameMode()) + step, gameModes.size());
+        metadata.setGameMode(gameModes.get(next));
+        notifyWindows();
+        player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.2f);
     }
 }
