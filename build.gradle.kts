@@ -13,7 +13,7 @@ plugins {
 }
 
 group = "dev.brauw.mapper"
-version = "2.0.0"
+version = "2.0.1"
 
 repositories {
     mavenCentral()
@@ -109,11 +109,11 @@ tasks.named("build") {
 //
 // The fat jar is still published, under the "plugin" classifier - it is the artifact you install on
 // a server, not the one you compile against.
-// Shadow contributes shadowRuntimeElements to the java component, which would publish the fat jar as
-// a second unclassified artifact and collide with the thin one. Skip it - the fat jar is published
-// deliberately below, under its own classifier.
-(components["java"] as AdhocComponentWithVariants)
-        .withVariantsFromConfiguration(configurations["shadowRuntimeElements"]) { skip() }
+
+// The fat jar is published deliberately below under its own classifier, not as a second unclassified jar.
+shadow {
+    addShadowVariantIntoJavaComponent = false
+}
 
 publishing {
     publications {
