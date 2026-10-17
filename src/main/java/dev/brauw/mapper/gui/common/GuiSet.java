@@ -6,39 +6,45 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.jetbrains.annotations.NotNull;
-import xyz.xenondevs.inventoryaccess.component.AdventureComponentWrapper;
-import xyz.xenondevs.invui.gui.AbstractGui;
-import xyz.xenondevs.invui.gui.structure.Structure;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.gui.Gui;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-public class GuiSet<T> extends AbstractGui {
+/**
+ * The anvil row that takes a typed value: the paper the player renames, and a button that accepts the
+ * value once the validator does.
+ */
+public class GuiSet<T> {
 
     private final Runnable creator;
     private final AtomicReference<T> value;
     private final Predicate<T> validator;
     private final DoneButton doneButton;
     private final Supplier<Material> materialSupplier;
+    private final Gui gui;
 
     public GuiSet(AtomicReference<T> value, Supplier<Material> materialSupplier, Runnable creator, Predicate<T> validator) {
-        super(3, 1);
         this.creator = creator;
         this.materialSupplier = materialSupplier;
         this.value = value;
         this.validator = validator;
         this.doneButton = new DoneButton();
+        this.gui = Gui.builder()
+                .setStructure("-+.")
+                .addIngredient('-', new ItemBuilder(Material.PAPER).setName(Component.empty()))
+                .addIngredient('.', doneButton)
+                .build();
+    }
 
-        Structure structure = new Structure("-+.");
-        structure.addIngredient('-', new ItemBuilder(Material.PAPER).setDisplayName(""));
-        structure.addIngredient('.', doneButton);
-        applyStructure(structure);
+    public Gui gui() {
+        return gui;
     }
 
     public void update() {
@@ -48,20 +54,17 @@ public class GuiSet<T> extends AbstractGui {
     private class DoneButton extends AbstractItem {
 
         @Override
-        public ItemProvider getItemProvider() {
+        public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
             if (validator.test(value.get())) {
-                ItemBuilder itemBuilder = new ItemBuilder(materialSupplier.get());
-                itemBuilder.setDisplayName(new AdventureComponentWrapper(Component.text("Done!", NamedTextColor.GREEN)));
-                return itemBuilder;
-            } else {
-                ItemBuilder itemBuilder = new ItemBuilder(Material.TNT);
-                itemBuilder.setDisplayName(new AdventureComponentWrapper(Component.text("Choose another value.", NamedTextColor.RED)));
-                return itemBuilder;
+                return new ItemBuilder(materialSupplier.get())
+                        .setName(Component.text("Done!", NamedTextColor.GREEN));
             }
+            return new ItemBuilder(Material.TNT)
+                    .setName(Component.text("Choose another value.", NamedTextColor.RED));
         }
 
         @Override
-        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent event) {
+        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
             // Do not accept a value the validator rejects (e.g. it doesn't match a tag's pattern).
             if (!validator.test(value.get())) {
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);

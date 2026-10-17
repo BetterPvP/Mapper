@@ -7,13 +7,13 @@ plugins {
     // manager, InvUI-backed GUIs, Jackson-backed region models) can be declared `api` and therefore
     // reach a consumer's compile classpath. The fat jar used to supply them by accident.
     id("java-library")
-    id("io.freefair.lombok") version "8.12.2.1"
-    id("com.gradleup.shadow") version "8.3.6"
+    id("io.freefair.lombok") version "9.8.2"
+    id("com.gradleup.shadow") version "9.4.1"
     id("maven-publish")
 }
 
 group = "dev.brauw.mapper"
-version = "1.1.0"
+version = "2.0.0"
 
 repositories {
     mavenCentral()
@@ -23,7 +23,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:26.3.build.+")
     // Optional: the selection bridge only loads when WorldEdit or FastAsyncWorldEdit is installed.
     compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.15") { isTransitive = false }
     compileOnly("com.sk89q.worldedit:worldedit-core:7.3.15") { isTransitive = false }
@@ -31,11 +31,12 @@ dependencies {
     // compiling against Mapper needs them on its compile classpath too.
     api("com.fasterxml.jackson.core:jackson-databind:2.16.1")
     api("com.fasterxml.jackson.core:jackson-annotations:2.16.1")
-    api("xyz.xenondevs.invui:invui:1.49")
+    api("xyz.xenondevs.invui:invui:2.5.1")
     api("org.incendo:cloud-core:2.0.0")
     api("org.incendo:cloud-annotations:2.0.0")
-    api("org.incendo:cloud-paper:2.0.0-beta.10")
+    api("org.incendo:cloud-paper:2.0.1")
 
+    // MockBukkit has no 26.x build. The tests only use locations, worlds and vectors, which 1.21 provides alike.
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.105.0") {
         exclude(group = "org.junit")
         exclude(group = "org.junit.jupiter")
@@ -59,8 +60,7 @@ sourceSets {
     }
 }
 
-// Standalone plugin artifact: a runnable, self-contained plugin. Its legacy plugin.yml makes it a
-// spigot-namespace plugin, so Paper reobf-remaps it at load and the bundled (spigot-mapped) InvUI works.
+// Standalone plugin artifact: a runnable, self-contained plugin with its libraries relocated.
 tasks.named<ShadowJar>("shadowJar") {
     archiveBaseName = "mapper-plugin"
     archiveVersion = ""
@@ -76,12 +76,8 @@ tasks.named<ShadowJar>("shadowJar") {
 }
 
 // Embeddable bundle artifact: classes to be shaded into a HOST plugin.
-// InvUI is deliberately NOT bundled here. InvUI's inventory-access carries Spigot-mapped NMS
-// reflection that only works after Paper's reobf remap, and that remap is driven by the *top-level*
-// plugin's mappings namespace - which the host owns, not Mapper. A Mojang-namespace host (e.g.
-// Mineplexlobby) never remaps it, so a bundled copy throws NoClassDefFoundError: EntityHuman.
-// Instead we leave xyz.xenondevs un-relocated and let the host supply a single remapped copy
-// (StudioEngine provides one on the shared classpath via join-classpath).
+// InvUI is not bundled here and xyz.xenondevs stays un-relocated, so the host supplies the one copy
+// of InvUI that both use.
 val bundleJar = tasks.register<ShadowJar>("bundleJar") {
     archiveBaseName = "mapper"
     archiveVersion = ""
@@ -93,8 +89,8 @@ val bundleJar = tasks.register<ShadowJar>("bundleJar") {
     dependencies {
         exclude(dependency("xyz.xenondevs.invui:.*"))
     }
-    // Relocate mapping-agnostic libs to avoid host collisions, but NOT xyz.xenondevs:
-    // its references must resolve to the host-provided (remapped) InvUI classes.
+    // Relocate the other libraries to avoid host collisions, but not xyz.xenondevs:
+    // its references must resolve to the host's InvUI classes.
     relocate("com.fasterxml.jackson", "dev.brauw.mapper.libs.jackson")
     relocate("org.incendo", "dev.brauw.mapper.libs.incendo")
 }
@@ -124,7 +120,7 @@ publishing {
         create<MavenPublication>("Mapper") {
             from(components["java"])
 
-            // Self-contained runnable plugin (bundles relocated InvUI/Jackson/Cloud).
+            // Self-contained runnable plugin (bundles relocated InvUI, Jackson and Cloud).
             // Consume as com.github.BetterPvP:Mapper:<version>:plugin
             //
             // Published from the task's output file rather than the task itself: shadowJar keeps an
@@ -156,7 +152,7 @@ tasks.build {
 }
 
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+    toolchain.languageVersion.set(JavaLanguageVersion.of(25))
 }
 
 tasks.test {

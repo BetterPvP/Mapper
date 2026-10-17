@@ -1,5 +1,5 @@
 name: Mapper
-version: 1.1.0
-api-version: '1.21'
+version: 2.0.0
+api-version: '26.3'
 main: dev.brauw.mapper.MapperPlugin
 softdepend: [WorldEdit, FastAsyncWorldEdit]

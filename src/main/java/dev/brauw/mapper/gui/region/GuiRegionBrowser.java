@@ -16,17 +16,14 @@ import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.jetbrains.annotations.NotNull;
-import xyz.xenondevs.inventoryaccess.component.AdventureComponentWrapper;
-import xyz.xenondevs.invui.gui.AbstractPagedGui;
-import xyz.xenondevs.invui.gui.SlotElement;
-import xyz.xenondevs.invui.gui.structure.Markers;
-import xyz.xenondevs.invui.gui.structure.Structure;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.gui.Markers;
+import xyz.xenondevs.invui.gui.PagedGui;
+import xyz.xenondevs.invui.item.AbstractItem;
 import xyz.xenondevs.invui.item.Item;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,38 +35,34 @@ import java.util.List;
  * list that showed only names would be unusable; every row carries the region's coordinates, which
  * is what actually distinguishes two regions called {@code npc_resident}.
  */
-public class GuiRegionBrowser extends AbstractPagedGui<Item> {
+public class GuiRegionBrowser {
 
     private final EditSession session;
     private final Player viewer;
     private final GuiManager guiManager;
     private final SelectionHandler selectionHandler;
     private final List<Region> shown;
+    private final PagedGui<Item> gui;
 
     public GuiRegionBrowser(EditSession session, Player viewer, GuiManager guiManager,
                             SelectionHandler selectionHandler, List<Region> shown) {
-        super(9, 5, false,
-                10, 11, 12, 13, 14, 15, 16,
-                19, 20, 21, 22, 23, 24, 25,
-                28, 29, 30, 31, 32, 33, 34);
         this.session = session;
         this.viewer = viewer;
         this.guiManager = guiManager;
         this.selectionHandler = selectionHandler;
         this.shown = shown;
 
-        final Structure structure = new Structure(
-                "# # # # # # # # #",
-                "# r r r r r r r #",
-                "# r r r r r r r #",
-                "# r r r r r r r #",
-                "# # # < # > # # #"
-        );
-        structure.addIngredient('r', Markers.CONTENT_LIST_SLOT_HORIZONTAL);
-        structure.addIngredient('<', new BackItem());
-        structure.addIngredient('>', new ForwardItem());
-
-        applyStructure(structure);
+        this.gui = PagedGui.itemsBuilder()
+                .setStructure(
+                        "# # # # # # # # #",
+                        "# r r r r r r r #",
+                        "# r r r r r r r #",
+                        "# r r r r r r r #",
+                        "# # # < # > # # #")
+                .addIngredient('r', Markers.CONTENT_LIST_SLOT_HORIZONTAL)
+                .addIngredient('<', new BackItem())
+                .addIngredient('>', new ForwardItem())
+                .build();
         rebuild();
     }
 
@@ -78,29 +71,11 @@ public class GuiRegionBrowser extends AbstractPagedGui<Item> {
         for (RegionNesting.Nested nested : RegionNesting.tree(shown, session.getRegions())) {
             items.add(new RegionButton(nested));
         }
-        setContent(items);
+        gui.setContent(items);
     }
 
-    @Override
-    public void bake() {
-        final int contentSize = getContentListSlots().length;
-        final List<List<SlotElement>> pages = new ArrayList<>();
-        List<SlotElement> page = new ArrayList<>(contentSize);
-
-        for (Item item : content) {
-            page.add(new SlotElement.ItemSlotElement(item));
-            if (page.size() >= contentSize) {
-                pages.add(page);
-                page = new ArrayList<>(contentSize);
-            }
-        }
-
-        if (!page.isEmpty()) {
-            pages.add(page);
-        }
-
-        this.pages = pages;
-        update();
+    public PagedGui<Item> gui() {
+        return gui;
     }
 
     /** One region: click to travel to it, right-click to edit its tags, shift-click to delete it. */
@@ -115,39 +90,37 @@ public class GuiRegionBrowser extends AbstractPagedGui<Item> {
         }
 
         @Override
-        public ItemProvider getItemProvider() {
+        public @NotNull ItemProvider getItemProvider(@NotNull Player who) {
             final boolean editable = session.canEdit(viewer);
             final ItemBuilder builder = new ItemBuilder(region.getOptions().getColor().getMaterial())
-                    .setDisplayName(new AdventureComponentWrapper(
-                            Component.text(indent() + "#" + region.getName(), NamedTextColor.YELLOW)))
+                    .setName(Component.text(indent() + "#" + region.getName(), NamedTextColor.YELLOW))
                     .addLoreLines(
-                            new AdventureComponentWrapper(Component.text(
-                                    region.getType().name().toLowerCase(), NamedTextColor.DARK_GRAY)),
-                            new AdventureComponentWrapper(Component.text(
-                                    RegionFormat.coordinates(region), NamedTextColor.GRAY)));
+                            Component.text(
+                                    region.getType().name().toLowerCase(), NamedTextColor.DARK_GRAY),
+                            Component.text(
+                                    RegionFormat.coordinates(region), NamedTextColor.GRAY));
 
             if (nested.getParent() != null) {
-                builder.addLoreLines(new AdventureComponentWrapper(Component.text(
-                        "Inside #" + nested.getParent().getName(), NamedTextColor.GRAY)));
+                builder.addLoreLines(Component.text(
+                        "Inside #" + nested.getParent().getName(), NamedTextColor.GRAY));
             }
 
             final Component tags = RegionFormat.tags(region);
             if (!Component.empty().equals(tags)) {
-                builder.addLoreLines(new AdventureComponentWrapper(tags));
+                builder.addLoreLines(tags);
             }
 
-            builder.addLoreLines(new AdventureComponentWrapper(
-                    Component.text("Click to teleport", NamedTextColor.GREEN)));
+            builder.addLoreLines(Component.text("Click to teleport", NamedTextColor.GREEN));
             if (editable) {
                 builder.addLoreLines(
-                        new AdventureComponentWrapper(Component.text("Right-click to edit tags", NamedTextColor.AQUA)),
-                        new AdventureComponentWrapper(Component.text("Shift-click to delete", NamedTextColor.RED)));
+                        Component.text("Right-click to edit tags", NamedTextColor.AQUA),
+                        Component.text("Shift-click to delete", NamedTextColor.RED));
             }
             return builder;
         }
 
         @Override
-        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent event) {
+        public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
             if (clickType.isShiftClick()) {
                 if (!requireEdit(player)) return;
                 player.closeInventory();

@@ -11,12 +11,11 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.jetbrains.annotations.NotNull;
-import xyz.xenondevs.inventoryaccess.component.AdventureComponentWrapper;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
 import xyz.xenondevs.invui.window.AnvilWindow;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,15 +29,15 @@ public class HeightButton extends AbstractItem {
     private final MapMetadata metadata;
 
     @Override
-    public ItemProvider getItemProvider() {
+    public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
         return new ItemBuilder(Material.OAK_STAIRS)
-                .setDisplayName(new AdventureComponentWrapper(Component.text("Max Height: ", NamedTextColor.GOLD)
-                        .append(Component.text(metadata.getMaxHeight(), NamedTextColor.WHITE))))
-                .addLoreLines(new AdventureComponentWrapper(Component.text("Click to change", NamedTextColor.GRAY)));
+                .setName(Component.text("Max Height: ", NamedTextColor.GOLD)
+                        .append(Component.text(metadata.getMaxHeight(), NamedTextColor.WHITE)))
+                .addLoreLines(Component.text("Click to change", NamedTextColor.GRAY));
     }
 
     @Override
-    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent inventoryClickEvent) {
+    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
         player.closeInventory();
         taskScheduler.scheduleTask(() -> openRenameGui(player), 1L);
     }
@@ -49,8 +48,8 @@ public class HeightButton extends AbstractItem {
             metadata.setMaxHeight(maxHeight.get());
             taskScheduler.scheduleTask(() -> guiManager.openMetadataEditor(player, metadata), 1L);
         }, value -> value > 0);
-        AnvilWindow.single()
-                .setGui(gui)
+        AnvilWindow.builder()
+                .setUpperGui(gui::gui)
                 .addRenameHandler(updated -> {
                     try {
                         maxHeight.set(Integer.valueOf(updated));
@@ -59,10 +58,10 @@ public class HeightButton extends AbstractItem {
                     }
                     gui.update();
                 })
-                .addCloseHandler(() -> {
+                .addCloseHandler(reason -> {
                     taskScheduler.scheduleTask(() -> guiManager.openMetadataEditor(player, metadata), 1L);
                 })
-                .setTitle("Create a new region")
+                .setTitle("Set the max height")
                 .open(player);
     }
 }

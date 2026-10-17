@@ -7,12 +7,11 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.jetbrains.annotations.NotNull;
-import xyz.xenondevs.inventoryaccess.component.AdventureComponentWrapper;
+import xyz.xenondevs.invui.Click;
+import xyz.xenondevs.invui.item.AbstractItem;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.AbstractItem;
 
 public class SaveButton extends AbstractItem {
     private final GuiMetadata guiMetadata;
@@ -22,14 +21,14 @@ public class SaveButton extends AbstractItem {
     }
 
     @Override
-    public ItemProvider getItemProvider() {
+    public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
         return new ItemBuilder(Material.EMERALD)
-                .setDisplayName(new AdventureComponentWrapper(Component.text("Save Metadata", NamedTextColor.GREEN)))
-                .addLoreLines(new AdventureComponentWrapper(Component.text("Click to save changes", NamedTextColor.GRAY)));
+                .setName(Component.text("Save Metadata", NamedTextColor.GREEN))
+                .addLoreLines(Component.text("Click to save changes", NamedTextColor.GRAY));
     }
 
     @Override
-    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull InventoryClickEvent inventoryClickEvent) {
+    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
         guiMetadata.getMetadataManager().saveMetadata(player.getWorld(), guiMetadata.getMetadata());
         player.closeInventory();
         player.sendMessage(Component.text("Map metadata saved successfully!", NamedTextColor.GREEN));

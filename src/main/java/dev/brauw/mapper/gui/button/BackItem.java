@@ -1,26 +1,32 @@
 package dev.brauw.mapper.gui.button;
 
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
+import org.jetbrains.annotations.NotNull;
+import xyz.xenondevs.invui.Click;
 import xyz.xenondevs.invui.gui.PagedGui;
+import xyz.xenondevs.invui.item.AbstractPagedGuiBoundItem;
+import xyz.xenondevs.invui.item.ItemBuilder;
 import xyz.xenondevs.invui.item.ItemProvider;
-import xyz.xenondevs.invui.item.builder.ItemBuilder;
-import xyz.xenondevs.invui.item.impl.controlitem.PageItem;
 
-public class BackItem extends PageItem {
+public class BackItem extends AbstractPagedGuiBoundItem {
 
-    public BackItem() {
-        super(false);
+    @Override
+    public @NotNull ItemProvider getItemProvider(@NotNull Player viewer) {
+        final PagedGui<?> gui = getGui();
+        return new ItemBuilder(Material.RED_STAINED_GLASS_PANE)
+                .setName("Previous page")
+                .addLoreLines(gui.getPage() > 0
+                        ? "Go to page " + gui.getPage() + "/" + gui.getPageCount()
+                        : "You can't go further back");
     }
 
     @Override
-    public ItemProvider getItemProvider(PagedGui<?> gui) {
-        ItemBuilder builder = new ItemBuilder(Material.RED_STAINED_GLASS_PANE);
-        builder.setDisplayName("Previous page")
-            .addLoreLines(gui.hasPreviousPage()
-                ? "Go to page " + gui.getCurrentPage() + "/" + gui.getPageAmount()
-                : "You can't go further back");
-
-        return builder;
+    public void handleClick(@NotNull ClickType clickType, @NotNull Player player, @NotNull Click click) {
+        final PagedGui<?> gui = getGui();
+        if (gui.getPage() > 0) {
+            gui.setPage(gui.getPage() - 1);
+        }
     }
-
 }
